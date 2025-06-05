@@ -1,0 +1,98 @@
+:root {
+    --sidebar-bg: #b3907a;
+    --sidebar-accent: #b3907a;
+    --sidebar-text: #e2e8f0;
+    --sidebar-hover: #cabdad;
+    --main-bg: #f1f5f9;
+    --card-bg: #ffffff;
+    --primary: #3b82f6;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --text-dark: #0f172a;
+    --text-medium: #334155;
+    --text-light: #64748b;
+    --border-color: #e2e8f0;
+    --shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    --transition: all 0.3s ease;
+}
+
+/* Reset & Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    display: flex;
+    min-height: 100vh;
+    background-color: var(--main-bg);
+    color: var(--text-medium);
+}
+
+/* Sidebar Styles */
+.sidebar {
+    width: 260px;
+    background: var(--sidebar-bg);
+    color: var(--sidebar-text);
+    transition: var(--transition);
+    height: 100vh;
+    position: fixed;
+    overflow-y: auto;
+    z-index: 100;
+}
+
+.sidebar-header {
+    padding: 24px 20px;
+    background: var(--sidebar-accent);
+    border-bottom: 1px solid #b3907a;
+}
+
+.sidebar-header h1 {
+    font-size: 24px;
+    font-weight: 700;
+    background: linear-gradient(to right, #000000, #ffffff);
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 0.8px;
+    padding-left: 10px;
+}
+
+.nav-links {
+    padding: 20px 0;
+}
+
+.nav-links li {
+    list-style: none;
+    position: relative;
+}
+
+.nav-links li a {
+    display: flex;
+    align-items: center;
+    padding: 14px 20px;
+    text-decoration: none;
+    color: var(--sidebar-text);
+    font-size: 16px;
+    transition: var(--transition);
+    border-left: 3px solid transparent;
+}
+
+.nav-links li a:hover {
+    background: var(--sidebar-hover);
+    border-left: 3px solid var(--primary);
+}
+
+.nav-links li a.active {
+    background: var(--sidebar-hover);
+    border-left: 3px solid var(--primary);
+}
+
+.nav-links li a i {
+    margin-right: 12px;
+    width: 24px;
+    text-align: center;
+    font-size: 18px;
+}
