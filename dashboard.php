@@ -48,6 +48,12 @@ $dashboard_data = [
                 </a>
             </li>
             <li>
+                <a href="order_management.php">
+                    <i class="fas fa-gear"></i>
+                    <span class="link-text">Order Management</span>
+                </a>
+            </li>
+            <li>
                 <a href="employees.php">
                     <i class="fas fa-users"></i>
                     <span class="link-text">Employees</span>
