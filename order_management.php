@@ -2,551 +2,143 @@
 // order_management.php
 session_start();
 
-// Simulate authentication
 if (!isset($_SESSION['admin_logged_in'])) {
     $_SESSION['admin_logged_in'] = true;
 }
 
-// Simulated employees data
-$employees = [
-    ['id' => 1, 'name' => 'Windyl Aguilar'],
-    ['id' => 2, 'name' => 'John Smith'],
-    ['id' => 3, 'name' => 'Maria Garcia'],
-    ['id' => 4, 'name' => 'Robert Johnson'],
-    ['id' => 5, 'name' => 'Emily Davis']
-];
-
-// Simulated orders data
-$orders = [
-    [
-        'id' => '#001',
-        'client' => 'Juan Dela Cruz',
-        'employee' => 'Windyl Aguilar',
-        'status' => 'Pending',
-        'deadline' => 'June 10, 2025'
-    ],
-    [
-        'id' => '#002',
-        'client' => 'Maria Santos',
-        'employee' => 'John Smith',
-        'status' => 'Ongoing',
-        'deadline' => 'June 8, 2025'
-    ],
-    [
-        'id' => '#003',
-        'client' => 'Robert Lim',
-        'employee' => 'Maria Garcia',
-        'status' => 'Delivered',
-        'deadline' => 'June 6, 2025'
-    ],
-    [
-        'id' => '#004',
-        'client' => 'Anna Torres',
-        'employee' => 'Robert Johnson',
-        'status' => 'Pending',
-        'deadline' => 'June 12, 2025'
-    ]
-];
-
-// Latest order data
-$latestOrder = [
-    'id' => 'A0001',
-    'client' => 'Juan Dela Cruz',
-    'total_today' => 5
-];
-
-// Process form submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    // In a real application, you would save this to a database
-    $newOrder = [
-        'id' => '#' . str_pad(count($orders) + 1, 3, '0', STR_PAD_LEFT),
-        'client' => $_POST['client_name'],
-        'employee' => $_POST['assigned_employee'],
-        'status' => 'Pending',
-        'deadline' => date('F j, Y', strtotime($_POST['deadline']))
-    ];
-    
-    array_unshift($orders, $newOrder);
-    $latestOrder = [
-        'id' => $newOrder['id'],
-        'client' => $newOrder['client'],
-        'total_today' => $latestOrder['total_today'] + 1
-    ];
+if (!file_exists('img')) {
+    mkdir('img', 0777, true);
 }
+
+$pdo = new PDO("mysql:host=localhost;dbname=modern_concept", "root", "");
+$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+// Fetch employees
+$employees = $pdo->query("SELECT id, name FROM employees")->fetchAll(PDO::FETCH_ASSOC);
+
+// Handle new order submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['client_name'])) {
+    $imagePath = '';
+
+    if (isset($_FILES['design_image']) && $_FILES['design_image']['error'] === UPLOAD_ERR_OK) {
+        $uploadDir = 'img/';
+        $filename = uniqid() . '_' . basename($_FILES['design_image']['name']);
+        $targetPath = $uploadDir . $filename;
+
+        if (move_uploaded_file($_FILES['design_image']['tmp_name'], $targetPath)) {
+            $imagePath = $targetPath;
+        }
+    }
+
+    // Get and calculate values
+    $quantity = isset($_POST['quantity']) ? (int) $_POST['quantity'] : 0;
+    $price = isset($_POST['price']) ? (float) $_POST['price'] : 0.0;
+    $total_price = $quantity * $price;
+    $size = isset($_POST['size']) ? $_POST['size'] : '';
+
+    // Insert order
+    $stmt = $pdo->prepare("INSERT INTO orders (client_name, order_desc, assigned_employee, status, deadline, image_path, quantity, price, total_price, size, created_at)
+                           VALUES (?, ?, ?, 'Pending', ?, ?, ?, ?, ?, ?, NOW())");
+
+    $stmt->execute([
+        $_POST['client_name'],
+        $_POST['order_desc'],
+        $_POST['assigned_employee'],
+        $_POST['deadline'],
+        $imagePath,
+        $quantity,
+        $price,
+        $total_price,
+        $size
+    ]);
+
+    header('Location: order_management.php');
+    exit;
+}
+
+// Update status
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
+    $stmt = $pdo->prepare("UPDATE orders SET status = ? WHERE id = ?");
+    $stmt->execute([
+        $_POST['new_status'],
+        $_POST['order_id']
+    ]);
+
+    header('Location: order_management.php');
+    exit;
+}
+
+// Delete order
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_order'])) {
+    $stmt = $pdo->prepare("SELECT image_path FROM orders WHERE id = ?");
+    $stmt->execute([$_POST['order_id']]);
+    $order = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($order && !empty($order['image_path']) && file_exists($order['image_path'])) {
+        unlink($order['image_path']);
+    }
+
+    $stmt = $pdo->prepare("DELETE FROM orders WHERE id = ?");
+    $stmt->execute([$_POST['order_id']]);
+
+    header('Location: order_management.php');
+    exit;
+}
+
+// Fetch all orders
+$orders = $pdo->query("SELECT * FROM orders ORDER BY id DESC")->fetchAll(PDO::FETCH_ASSOC);
+
+// Status counts and stats
+$pendingCount = 0;
+$doneCount = 0;
+$deliveredCount = 0;
+$pendingDeadline = null;
+$latestOrder = null;
+$dailyOrderCount = 0;
+
+foreach ($orders as $order) {
+    switch ($order['status']) {
+        case 'Pending':
+            $pendingCount++;
+            $deadlineTime = strtotime($order['deadline']);
+            if ($pendingDeadline === null || $deadlineTime < $pendingDeadline) {
+                $pendingDeadline = $deadlineTime;
+            }
+            break;
+        case 'Done':
+            $doneCount++;
+            break;
+        case 'Delivered':
+            $deliveredCount++;
+            break;
+    }
+
+    if (date('Y-m-d', strtotime($order['created_at'])) === date('Y-m-d')) {
+        $dailyOrderCount++;
+    }
+}
+
+$latestOrder = count($orders) > 0 ? [
+    'id' => 'A' . str_pad($orders[0]['id'], 4, '0', STR_PAD_LEFT),
+    'client' => $orders[0]['client_name'],
+    'total_today' => $dailyOrderCount,
+    'image' => $orders[0]['image_path']
+] : null;
 ?>
+
+
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Order Management</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css">
-    <style>
-        :root {
-            --sidebar-bg: #b3907a;
-            --sidebar-accent: #b3907a;
-            --sidebar-text: #e2e8f0;
-            --sidebar-hover: #cabdad;
-            --main-bg: #f1f5f9;
-            --card-bg: #ffffff;
-            --primary: #3b82f6;
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --text-dark: #0f172a;
-            --text-medium: #334155;
-            --text-light: #64748b;
-            --border-color: #e2e8f0;
-            --shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-            --transition: all 0.3s ease;
-        }
-
-        /* Reset & Base Styles */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        }
-
-        body {
-            display: flex;
-            min-height: 100vh;
-            background-color: var(--main-bg);
-            color: var(--text-medium);
-        }
-
-        /* Sidebar Styles */
-        .sidebar {
-            width: 260px;
-            background: var(--sidebar-bg);
-            color: var(--sidebar-text);
-            transition: var(--transition);
-            height: 100vh;
-            position: fixed;
-            overflow-y: auto;
-            z-index: 100;
-        }
-
-        .sidebar-header {
-            padding: 24px 20px;
-            background: var(--sidebar-accent);
-            border-bottom: 1px solid #b3907a;
-        }
-
-        .sidebar-header h1 {
-            font-size: 24px;
-            font-weight: 700;
-            background: linear-gradient(to right, #000000, #ffffff);
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            letter-spacing: 0.8px;
-            padding-left: 10px;
-        }
-
-        .nav-links {
-            padding: 20px 0;
-        }
-
-        .nav-links li {
-            list-style: none;
-            position: relative;
-        }
-
-        .nav-links li a {
-            display: flex;
-            align-items: center;
-            padding: 14px 20px;
-            text-decoration: none;
-            color: var(--sidebar-text);
-            font-size: 16px;
-            transition: var(--transition);
-            border-left: 3px solid transparent;
-        }
-
-        .nav-links li a:hover {
-            background: var(--sidebar-hover);
-            border-left: 3px solid var(--primary);
-        }
-
-        .nav-links li a.active {
-            background: var(--sidebar-hover);
-            border-left: 3px solid var(--primary);
-        }
-
-        .nav-links li a i {
-            margin-right: 12px;
-            width: 24px;
-            text-align: center;
-            font-size: 18px;
-        }
-
-        /* Main Content Styles */
-        .main-content {
-            flex: 1;
-            margin-left: 260px;
-            padding: 30px;
-            transition: var(--transition);
-        }
-
-        .page-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-        }
-
-        .page-header h2 {
-            font-size: 28px;
-            font-weight: 700;
-            color: var(--text-dark);
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .user-avatar {
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
-            background: linear-gradient(45deg, var(--primary), #60a5fa);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-size: 18px;
-        }
-
-        /* Order Management Styles */
-        .order-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
-            gap: 30px;
-            margin-bottom: 30px;
-        }
-
-        .card {
-            background: var(--card-bg);
-            border-radius: 16px;
-            box-shadow: var(--shadow);
-            padding: 25px;
-            transition: var(--transition);
-        }
-
-        .card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
-        }
-
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .card-title {
-            font-size: 20px;
-            font-weight: 600;
-            color: var(--text-dark);
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: var(--text-dark);
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 12px 15px;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            font-size: 16px;
-            transition: var(--transition);
-        }
-
-        .form-control:focus {
-            border-color: var(--primary);
-            outline: none;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
-        }
-
-        textarea.form-control {
-            min-height: 100px;
-            resize: vertical;
-        }
-
-        .btn {
-            display: inline-block;
-            padding: 12px 25px;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-
-        .btn:hover {
-            background: #2563eb;
-            transform: translateY(-2px);
-        }
-
-        .btn-block {
-            display: block;
-            width: 100%;
-        }
-
-        .latest-order {
-            text-align: center;
-            padding: 20px 0;
-        }
-
-        .order-id {
-            font-size: 32px;
-            font-weight: 700;
-            color: var(--text-dark);
-            margin-bottom: 10px;
-        }
-
-        .client-name {
-            font-size: 20px;
-            margin-bottom: 15px;
-            color: var(--text-medium);
-        }
-
-        .order-stats {
-            background: rgba(16, 185, 129, 0.1);
-            padding: 15px;
-            border-radius: 8px;
-            color: var(--success);
-            font-weight: 500;
-        }
-
-        /* Status Cards */
-        .status-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-
-        .status-card {
-            background: var(--card-bg);
-            border-radius: 16px;
-            box-shadow: var(--shadow);
-            padding: 20px;
-            text-align: center;
-        }
-
-        .status-header {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 15px;
-            color: var(--text-dark);
-        }
-
-        .status-value {
-            font-size: 24px;
-            font-weight: 700;
-            margin-bottom: 15px;
-        }
-
-        .status-icon {
-            font-size: 24px;
-            margin-bottom: 15px;
-        }
-
-        .pending .status-icon {
-            color: var(--warning);
-        }
-
-        .ongoing .status-icon {
-            color: var(--primary);
-        }
-
-        .delivered .status-icon {
-            color: var(--success);
-        }
-
-        /* Order Table */
-        .table-container {
-            background: var(--card-bg);
-            border-radius: 16px;
-            box-shadow: var(--shadow);
-            padding: 25px;
-            overflow: hidden;
-        }
-
-        .table-header {
-            font-size: 20px;
-            font-weight: 600;
-            margin-bottom: 20px;
-            color: var(--text-dark);
-        }
-
-        .orders-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .orders-table th,
-        .orders-table td {
-            padding: 15px;
-            text-align: left;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .orders-table th {
-            font-weight: 600;
-            color: var(--text-dark);
-            background-color: rgba(241, 245, 249, 0.5);
-        }
-
-        .orders-table tr:last-child td {
-            border-bottom: none;
-        }
-
-        .orders-table tr:hover td {
-            background-color: rgba(241, 245, 249, 0.3);
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 14px;
-            font-weight: 500;
-        }
-
-        .status-pending {
-            background: rgba(245, 158, 11, 0.1);
-            color: var(--warning);
-        }
-
-        .status-ongoing {
-            background: rgba(59, 130, 246, 0.1);
-            color: var(--primary);
-        }
-
-        .status-delivered {
-            background: rgba(16, 185, 129, 0.1);
-            color: var(--success);
-        }
-
-        .action-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: rgba(59, 130, 246, 0.1);
-            color: var(--primary);
-            border: none;
-            cursor: pointer;
-            transition: var(--transition);
-        }
-
-        .action-btn:hover {
-            background: var(--primary);
-            color: white;
-            transform: translateY(-2px);
-        }
-
-        /* Responsive Styles */
-        @media (max-width: 992px) {
-            .sidebar {
-                width: 80px;
-            }
-            .sidebar-header h1, .link-text {
-                display: none;
-            }
-            .nav-links li a {
-                justify-content: center;
-                padding: 20px;
-                border-left: none;
-            }
-            .nav-links li a i {
-                margin-right: 0;
-                font-size: 20px;
-            }
-            .main-content {
-                margin-left: 80px;
-            }
-        }
-
-        @media (max-width: 768px) {
-            .main-content {
-                padding: 20px;
-            }
-            .order-container {
-                grid-template-columns: 1fr;
-            }
-            .page-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 15px;
-            }
-            .user-info {
-                width: 100%;
-                justify-content: space-between;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .sidebar {
-                width: 0;
-                overflow: hidden;
-            }
-            .sidebar.active {
-                width: 260px;
-                z-index: 1000;
-            }
-            .main-content {
-                margin-left: 0;
-            }
-            .mobile-menu-btn {
-                display: block;
-                position: fixed;
-                top: 20px;
-                left: 20px;
-                background: var(--primary);
-                color: white;
-                border: none;
-                width: 40px;
-                height: 40px;
-                border-radius: 8px;
-                font-size: 20px;
-                cursor: pointer;
-                z-index: 1001;
-            }
-            .status-cards {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* Mobile menu button (hidden by default) */
-        .mobile-menu-btn {
-            display: none;
-        }
-    </style>
+    <link rel="stylesheet" href="assets/css/om.css">
 </head>
+
 <body>
     <!-- Mobile menu button -->
     <button class="mobile-menu-btn">
@@ -629,7 +221,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="card-header">
                     <div class="card-title">Upload Design</div>
                 </div>
-                <form method="POST">
+                <form method="POST" enctype="multipart/form-data">
                     <div class="form-group">
                         <label for="clientName">Client Name</label>
                         <input type="text" id="clientName" name="client_name" class="form-control" placeholder="Client Name" required>
@@ -646,13 +238,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <label for="assignedEmployee">Assign Employee</label>
                         <select id="assignedEmployee" name="assigned_employee" class="form-control" required>
                             <?php foreach ($employees as $employee): ?>
-                                <option value="<?php echo $employee['name']; ?>"><?php echo $employee['name']; ?></option>
+                                <option value="<?php echo htmlspecialchars($employee['name']); ?>">
+                                    <?php echo htmlspecialchars($employee['name']); ?>
+                                </option>
                             <?php endforeach; ?>
                         </select>
                     </div>
+
+                    <div class="form-group">
+                        <label for="quantity">Quantity</label>
+                        <input type="number" id="quantity" name="quantity" class="form-control" placeholder="Enter quantity" required min="1">
+                    </div>
+                    <div class="form-group">
+                        <label for="size">Size</label>
+                        <select id="size" name="size" class="form-control" required>
+                            <option value="">Select size</option>
+                            <option value="S">S</option>
+                            <option value="M">M</option>
+                            <option value="L">L</option>
+                            <option value="XL">XL</option>
+                            <option value="XXL">XXL</option>
+                            <option value="XXXL">XXXL</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="price">Price (per item)</label>
+                        <input type="number" step="0.01" id="price" name="price" class="form-control" placeholder="Enter price per item" required min="0">
+                    </div>
+
+                    <div class="file-upload">
+                        <label class="file-upload-label" for="designImage">
+                            <i class="fas fa-cloud-upload-alt"></i> Upload Design Image
+                        </label>
+                        <input type="file" id="designImage" name="design_image" class="file-upload-input" accept="image/*">
+                        <span id="fileName" class="file-name">No file selected</span>
+                    </div>
+
                     <button type="submit" class="btn btn-block">Add Order</button>
                 </form>
             </div>
+
 
             <!-- Latest Order -->
             <div class="card">
@@ -660,8 +285,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="card-title">Latest Order</div>
                 </div>
                 <div class="latest-order">
-                    <div class="order-id"><?php echo $latestOrder['id']; ?></div>
-                    <div class="client-name"><?php echo $latestOrder['client']; ?></div>
+                    <?php if ($latestOrder): ?>
+                        <div class="design-preview">
+                            <?php if (!empty($latestOrder['image'])): ?>
+                                <img src="<?php echo $latestOrder['image']; ?>" alt="Latest Design">
+                            <?php else: ?>
+                                <div class="design-placeholder">
+                                    <i class="fas fa-image"></i>
+                                    <span>No design uploaded</span>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                        <div class="order-id"><?php echo $latestOrder['id']; ?></div>
+                        <div class="client-name"><?php echo $latestOrder['client']; ?></div>
+                    <?php else: ?>
+                        <div class="no-orders">
+                            <i class="fas fa-inbox"></i>
+                            <p>No orders yet</p>
+                        </div>
+                    <?php endif; ?>
                     <div class="order-stats">
                         Total Orders Today: <?php echo $latestOrder['total_today']; ?>
                     </div>
@@ -676,93 +318,253 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <i class="fas fa-clock"></i>
                 </div>
                 <div class="status-header">Pending</div>
-                <div class="status-value">2</div>
-                <div class="status-deadline">June 10, 2025</div>
+                <div class="status-value"><?php echo $pendingCount; ?></div>
+                <div class="status-deadline">
+                    <?php if ($pendingDeadline): ?>
+                        <?php echo date('F j, Y', $pendingDeadline); ?>
+                    <?php else: ?>
+                        No pending orders
+                    <?php endif; ?>
+                </div>
             </div>
-            
+
             <div class="status-card ongoing">
                 <div class="status-icon">
-                    <i class="fas fa-tasks"></i>
+                    <i class="fas fa-check"></i>
                 </div>
-                <div class="status-header">Ongoing</div>
-                <div class="status-value">1</div>
-                <div class="status-deadline">June 8, 2025</div>
+                <div class="status-header">Done</div>
+                <div class="status-value"><?php echo $doneCount; ?></div>
             </div>
-            
+
             <div class="status-card delivered">
                 <div class="status-icon">
                     <i class="fas fa-check-circle"></i>
                 </div>
                 <div class="status-header">Delivered</div>
-                <div class="status-value">1</div>
-                <div class="status-deadline">June 6, 2025</div>
+                <div class="status-value"><?php echo $deliveredCount; ?></div>
             </div>
         </div>
 
-        <!-- Orders Table -->
-        <div class="table-container">
-            <div class="table-header">Order ID</div>
-            <table class="orders-table">
-                <thead>
-                    <tr>
-                        <th>Order ID</th>
-                        <th>Client Name</th>
-                        <th>Assigned Employee</th>
-                        <th>Status</th>
-                        <th>Deadline</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($orders as $order): ?>
+        <<!-- Orders Table -->
+            <div class="table-container">
+                <div class="table-header">Order ID</div>
+                <table class="orders-table">
+                    <thead>
                         <tr>
-                            <td><?php echo $order['id']; ?></td>
-                            <td><?php echo $order['client']; ?></td>
-                            <td><?php echo $order['employee']; ?></td>
-                            <td>
-                                <span class="status-badge status-<?php echo strtolower($order['status']); ?>">
-                                    <?php echo $order['status']; ?>
-                                </span>
-                            </td>
-                            <td><?php echo $order['deadline']; ?></td>
-                            <td>
-                                <button class="action-btn">
-                                    <i class="fas fa-check"></i>
-                                </button>
-                                <button class="action-btn">
-                                    <i class="fas fa-edit"></i>
-                                </button>
-                            </td>
+                            <th>Image</th>
+                            <th>Order ID</th>
+                            <th>Client Name</th>
+                            <th>Assigned Employee</th>
+                            <th>Status</th>
+                            <th>Deadline</th>
+                            <th>Total Price</th> <!-- NEW COLUMN -->
+                            <th>Actions</th>
                         </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
+                    </thead>
+                    <tbody>
+                        <?php if (count($orders) > 0): ?>
+                            <?php foreach ($orders as $order): ?>
+                                <tr>
+                                    <td class="order-image-cell">
+                                        <?php if (!empty($order['image_path'])): ?>
+                                            <img src="<?php echo $order['image_path']; ?>" alt="Design" class="order-image">
+                                        <?php else: ?>
+                                            <div class="image-placeholder">
+                                                <i class="fas fa-image"></i>
+                                            </div>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td><?php echo $order['id']; ?></td>
+                                    <td><?php echo $order['client_name']; ?></td>
+                                    <td><?php echo $order['assigned_employee']; ?></td>
+                                    <td>
+                                        <span class="status-badge status-<?php echo strtolower($order['status']); ?>">
+                                            <?php echo $order['status']; ?>
+                                        </span>
+                                    </td>
+                                    <td><?php echo $order['deadline']; ?></td>
+                                    <td>₱<?php echo number_format($order['total_price'], 2); ?></td> <!-- NEW VALUE -->
+                                    <td>
+                                        <div class="status-actions">
+                                            <form method="POST" class="status-form" onsubmit="return false;">
+                                                <input type="hidden" name="order_id" value="<?php echo $order['id']; ?>">
+                                                <input type="hidden" name="new_status" value="<?php echo $order['status'] === 'Done' ? 'Pending' : 'Done'; ?>">
+                                                <input type="hidden" name="update_status" value="">
+                                                <label>
+                                                    <input type="checkbox"
+                                                        onchange="toggleStatus(this)"
+                                                        <?php echo $order['status'] === 'Done' ? 'checked' : ''; ?>>
+                                                    Done
+                                                </label>
+                                            </form>
+                                            <form method="POST" class="delete-form">
+                                                <input type="hidden" name="delete_order" value="1">
+                                                <input type="hidden" name="order_id" value="<?php echo $order['id']; ?>">
+                                                <button type="submit" class="action-btn delete-btn" title="Delete Order">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </form>
 
-    <script>
-        // Simple JavaScript for navigation and active states
-        document.addEventListener('DOMContentLoaded', function() {
-            // Set active navigation link
-            const navLinks = document.querySelectorAll('.nav-links a');
-            
-            navLinks.forEach(link => {
-                link.addEventListener('click', function(e) {
-                    navLinks.forEach(item => item.classList.remove('active'));
-                    this.classList.add('active');
+                                            <div class="status-selector">
+                                                <select class="status-select" data-order-id="<?php echo $order['id']; ?>">
+                                                    <option value="Pending" <?php echo $order['status'] === 'Pending' ? 'selected' : ''; ?>>Pending</option>
+                                                    <option value="Delivered" <?php echo $order['status'] === 'Delivered' ? 'selected' : ''; ?>>Delivered</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <tr>
+                                <td colspan="8" class="no-orders-row">
+                                    <div class="no-orders-message">
+                                        <i class="fas fa-inbox"></i>
+                                        <p>No orders found</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+            <script>
+                // Delete confirmation
+                document.querySelectorAll('.delete-form').forEach(form => {
+                    form.addEventListener('submit', function(e) {
+                        if (!confirm('Are you sure you want to delete this order?')) {
+                            e.preventDefault();
+                        }
+                    });
                 });
-            });
-            
-            // Toggle sidebar on mobile
-            const sidebar = document.querySelector('.sidebar');
-            document.querySelector('.mobile-menu-btn').addEventListener('click', function() {
-                sidebar.classList.toggle('active');
-            });
+                // Simple JavaScript for navigation and active states
+                document.addEventListener('DOMContentLoaded', function() {
+                    // Set active navigation link
+                    const navLinks = document.querySelectorAll('.nav-links a');
 
-            // Set minimum date for deadline (today)
-            const today = new Date().toISOString().split('T')[0];
-            document.getElementById('deadline').min = today;
-        });
-    </script>
+                    navLinks.forEach(link => {
+                        link.addEventListener('click', function(e) {
+                            navLinks.forEach(item => item.classList.remove('active'));
+                            this.classList.add('active');
+                        });
+                    });
+
+                    // Toggle sidebar on mobile
+                    const sidebar = document.querySelector('.sidebar');
+                    document.querySelector('.mobile-menu-btn').addEventListener('click', function() {
+                        sidebar.classList.toggle('active');
+                    });
+
+                    // Set minimum date for deadline (today)
+                    const today = new Date().toISOString().split('T')[0];
+                    document.getElementById('deadline').min = today;
+
+                    // File upload display
+                    const fileInput = document.getElementById('designImage');
+                    const fileNameDisplay = document.getElementById('fileName');
+
+                    fileInput.addEventListener('change', function() {
+                        if (this.files.length > 0) {
+                            fileNameDisplay.textContent = this.files[0].name;
+                        } else {
+                            fileNameDisplay.textContent = 'No file selected';
+                        }
+                    });
+
+                    // Status selector functionality
+                    document.querySelectorAll('.status-select').forEach(select => {
+                        select.addEventListener('change', function() {
+                            const orderId = this.dataset.orderId;
+                            const newStatus = this.value;
+
+                            // Create a form to submit the status change
+                            const form = document.createElement('form');
+                            form.method = 'POST';
+                            form.style.display = 'none';
+
+                            const orderIdInput = document.createElement('input');
+                            orderIdInput.type = 'hidden';
+                            orderIdInput.name = 'order_id';
+                            orderIdInput.value = orderId;
+
+                            const statusInput = document.createElement('input');
+                            statusInput.type = 'hidden';
+                            statusInput.name = 'new_status';
+                            statusInput.value = newStatus;
+
+                            const updateInput = document.createElement('input');
+                            updateInput.type = 'hidden';
+                            updateInput.name = 'update_status';
+                            updateInput.value = '1';
+
+                            form.appendChild(orderIdInput);
+                            form.appendChild(statusInput);
+                            form.appendChild(updateInput);
+
+                            document.body.appendChild(form);
+                            form.submit();
+                        });
+                    });
+                });
+
+                function toggleStatus(checkbox) {
+                    const form = checkbox.closest('form');
+                    const hiddenInput = form.querySelector('input[name="new_status"]');
+                    const orderId = form.querySelector('input[name="order_id"]').value;
+                    const updateStatusInput = form.querySelector('input[name="update_status"]');
+
+                    hiddenInput.value = checkbox.checked ? 'Done' : 'Pending';
+                    updateStatusInput.value = '1'; // Important: set this so PHP handles update
+
+                    const postData = new FormData(form);
+
+                    fetch('', {
+                        method: 'POST',
+                        body: postData
+                    }).then(() => {
+                        location.reload();
+                    });
+                }
+                // New function to switch between Pending and Delivered using the dropdown
+                function toggleDeliveryStatus(select) {
+                    const orderId = select.dataset.orderId;
+                    const newStatus = select.value;
+
+                    // Create a hidden form for submission
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.style.display = 'none';
+
+                    const orderIdInput = document.createElement('input');
+                    orderIdInput.type = 'hidden';
+                    orderIdInput.name = 'order_id';
+                    orderIdInput.value = orderId;
+
+                    const statusInput = document.createElement('input');
+                    statusInput.type = 'hidden';
+                    statusInput.name = 'new_status';
+                    statusInput.value = newStatus;
+
+                    const updateStatusInput = document.createElement('input');
+                    updateStatusInput.type = 'hidden';
+                    updateStatusInput.name = 'update_status';
+                    updateStatusInput.value = '1';
+
+                    form.appendChild(orderIdInput);
+                    form.appendChild(statusInput);
+                    form.appendChild(updateStatusInput);
+
+                    document.body.appendChild(form);
+                    form.submit();
+                }
+
+                // Attach the event listeners for the dropdowns
+                document.querySelectorAll('.status-select').forEach(select => {
+                    select.addEventListener('change', function() {
+                        toggleDeliveryStatus(this);
+                    });
+                });
+            </script>
 </body>
+
 </html>
