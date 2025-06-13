@@ -5,7 +5,11 @@ $pdo = new PDO("mysql:host=localhost;dbname=modern_concept", "root", "");
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_employee'])) {
     $name = $_POST['name'];
     $role = $_POST['role'];
-    $status = $_POST['status'];
+    $delivery = $_POST['delivery'];
+    $contact = $_POST['contact'];
+    $task = $_POST['task'];
+    $product_delivery = $_POST['product_delivery'];
+    $status = 'Active';
     $photo = '';
 
     if (!empty($_FILES['photo']['name'])) {
@@ -14,8 +18,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_employee'])) {
         move_uploaded_file($_FILES["photo"]["tmp_name"], $targetDir . $photo);
     }
 
-    $stmt = $pdo->prepare("INSERT INTO employees (name, role, photo, status) VALUES (?, ?, ?, ?)");
-    $stmt->execute([$name, $role, $photo, $status]);
+    $stmt = $pdo->prepare("INSERT INTO employees (name, role, delivery, contact, task, product_delivery, photo, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$name, $role, $delivery, $contact, $task, $product_delivery, $photo, $status]);
 }
 
 // Handle deletion
@@ -48,14 +52,6 @@ $employees = $pdo->query("SELECT * FROM employees")->fetchAll(PDO::FETCH_ASSOC);
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/emp.css">
-    <style>
-        .main-content { margin-left: 260px; padding: 30px; background-color: var(--main-bg); min-height: 100vh; }
-        h2, h3 { color: var(--text-dark); }
-        .form-control, .btn { box-shadow: var(--shadow); }
-        table { background-color: var(--card-bg); box-shadow: var(--shadow); }
-        th { background-color: var(--sidebar-hover); color: var(--text-dark); }
-        td { vertical-align: middle; }
-    </style>
 </head>
 <body>
     <div class="sidebar">
@@ -75,73 +71,103 @@ $employees = $pdo->query("SELECT * FROM employees")->fetchAll(PDO::FETCH_ASSOC);
     </div>
 
     <div class="main-content">
-        <div class="container">
-            <h2 class="mb-4">Add New Employee</h2>
-            <form method="POST" enctype="multipart/form-data" class="row g-3 mb-5">
-                <input type="hidden" name="add_employee" value="1">
-                <div class="col-md-6">
-                    <label class="form-label">Name</label>
-                    <input type="text" name="name" required class="form-control">
+        <div class="container-fluid">
+            <h2 class="main-title">Employee Management</h2>
+            
+            <div class="row row-equal">
+                <!-- Add Employee Form Column -->
+                <div class="col-form">
+                    <div class="form-container">
+                        <h3 class="section-title">Add/Edit Employee</h3>
+                        <form method="POST" enctype="multipart/form-data">
+                            <input type="hidden" name="add_employee" value="1">
+                            <div class="mb-3">
+                                <label class="form-label">Upload photo</label>
+                                <input type="file" name="photo" class="form-control">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Name</label>
+                                <input type="text" name="name" required class="form-control">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Role</label>
+                                <input type="text" name="role" required class="form-control">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Delivery</label>
+                                <input type="text" name="delivery" class="form-control">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Contact</label>
+                                <input type="text" name="contact" class="form-control">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Assign task</label>
+                                <input type="text" name="task" class="form-control">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Product delivery</label>
+                                <input type="text" name="product_delivery" class="form-control">
+                            </div>
+                            <div class="button-group">
+                                <button type="submit" class="btn btn-add">Add</button>
+                                <button type="button" class="btn btn-delete">Delete</button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">Role</label>
-                    <input type="text" name="role" required class="form-control">
+                
+                <!-- Employee List Column -->
+                <div class="col-table">
+                    <div class="employee-container">
+                        <h3 class="section-title">Employees List</h3>
+                        <div class="table-responsive">
+                            <table class="table table-bordered align-middle">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Photo</th>
+                                        <th scope="col">Name</th>
+                                        <th scope="col">Role</th>
+                                        <th scope="col">Delivery</th>
+                                        <th scope="col">Contact</th>
+                                        <th scope="col">Task</th>
+                                        <th scope="col">Status</th>
+                                        <th scope="col">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($employees as $emp): ?>
+                                    <tr>
+                                        <td>
+                                            <?php if ($emp['photo']): ?>
+                                                <img src="uploads/<?= htmlspecialchars($emp['photo']) ?>" class="employee-photo">
+                                            <?php else: ?>
+                                                N/A
+                                            <?php endif; ?>
+                                        </td>
+                                        <td><?= htmlspecialchars($emp['name']) ?></td>
+                                        <td><?= htmlspecialchars($emp['role']) ?></td>
+                                        <td><?= htmlspecialchars($emp['delivery'] ?? '') ?></td>
+                                        <td><?= htmlspecialchars($emp['contact'] ?? '') ?></td>
+                                        <td><?= htmlspecialchars($emp['task'] ?? '') ?></td>
+                                        <td>
+                                            <span class="badge bg-<?= $emp['status'] === 'Active' ? 'success' : 'secondary' ?>">
+                                                <?= htmlspecialchars($emp['status']) ?>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <form method="POST" onsubmit="return confirm('Are you sure you want to delete this employee?');">
+                                                <input type="hidden" name="employee_id" value="<?= $emp['id'] ?>">
+                                                <button type="submit" name="delete_employee" class="btn btn-danger btn-sm">Remove</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">Photo</label>
-                    <input type="file" name="photo" class="form-control">
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label">Status</label>
-                    <select name="status" class="form-control" required>
-                        <option value="Active">Active</option>
-                        <option value="Inactive">Inactive</option>
-                    </select>
-                </div>
-                <div class="col-12">
-                    <button type="submit" class="btn btn-primary">Add Employee</button>
-                </div>
-            </form>
-
-            <h3>Employees List</h3>
-            <div class="table-responsive">
-                <table class="table table-bordered align-middle">
-                    <thead>
-                        <tr>
-                            <th scope="col">Photo</th>
-                            <th scope="col">Name</th>
-                            <th scope="col">Role</th>
-                            <th scope="col">Status</th>
-                            <th scope="col">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($employees as $emp): ?>
-                        <tr>
-                            <td>
-                                <?php if ($emp['photo']): ?>
-                                    <img src="uploads/<?= htmlspecialchars($emp['photo']) ?>" style="width:50px; height:50px; object-fit:cover; border-radius:50%;">
-                                <?php else: ?>
-                                    N/A
-                                <?php endif; ?>
-                            </td>
-                            <td><?= htmlspecialchars($emp['name']) ?></td>
-                            <td><?= htmlspecialchars($emp['role']) ?></td>
-                            <td>
-                                <span class="badge bg-<?= $emp['status'] === 'Active' ? 'success' : 'secondary' ?>">
-                                    <?= htmlspecialchars($emp['status']) ?>
-                                </span>
-                            </td>
-                            <td>
-                                <form method="POST" onsubmit="return confirm('Are you sure you want to delete this employee?');">
-                                    <input type="hidden" name="employee_id" value="<?= $emp['id'] ?>">
-                                    <button type="submit" name="delete_employee" class="btn btn-danger btn-sm">Remove</button>
-                                </form>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
             </div>
         </div>
     </div>

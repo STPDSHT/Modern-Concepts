@@ -3,18 +3,21 @@
     --sidebar-accent: #b3907a;
     --sidebar-text: #e2e8f0;
     --sidebar-hover: #cabdad;
-    --main-bg: #f1f5f9;
+    --main-bg: #f8f9fa;
     --card-bg: #ffffff;
-    --primary: #3b82f6;
-    --success: #10b981;
-    --warning: #f59e0b;
-    --danger: #ef4444;
-    --text-dark: #0f172a;
-    --text-medium: #334155;
-    --text-light: #64748b;
-    --border-color: #e2e8f0;
-    --shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    --primary: #8E6D53; /* Dark Brown */
+    --success: #A9C48D; /* Light Green */
+    --status-green: #4CAF50; /* Status Green */
+    --warning: #ffc107;
+    --danger: #dc3545;
+    --text-dark: #212529;
+    --text-medium: #495057;
+    --text-light: #6c757d;
+    --border-color: #dee2e6;
+    --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     --transition: all 0.3s ease;
+    --section-green: #A9C48D; /* Light Green for sections */
+    --table-color:#ede2cb;
 }
 
 /* Reset & Base Styles */
@@ -32,7 +35,7 @@ body {
     color: var(--text-medium);
 }
 
-/* Sidebar Styles */
+/* Sidebar Styles - Unchanged */
 .sidebar {
     width: 260px;
     background: var(--sidebar-bg);
@@ -95,4 +98,143 @@ body {
     width: 24px;
     text-align: center;
     font-size: 18px;
+}
+
+/* Main Content Styles - Updated */
+.main-content {
+    margin-left: 260px;
+    width: calc(100% - 260px);
+    padding: 20px;
+}
+
+.main-title {
+    color: var(--primary);
+    margin-bottom: 1.5rem;
+    font-weight: 600;
+}
+
+.section-title {
+    color: var(--primary);
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--primary);
+}
+
+.form-container {
+    background: var(--section-green);
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    margin-bottom: 1.5rem;
+}
+
+.employee-container {
+    background: var(--table-color);
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--primary);
+}
+
+.button-group {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.btn-add {
+    background-color: var(--success);
+    border-color: var(--success);
+    color: var(--text-dark);
+    border-radius: 8px;
+    font-weight: 500;
+    padding: 8px 16px;
+}
+
+.btn-delete {
+    background-color: var(--danger);
+    border-color: var(--danger);
+    color: white;
+    border-radius: 8px;
+    font-weight: 500;
+    padding: 8px 16px;
+}
+
+.employee-photo {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--primary);
+}
+
+.table th {
+    background-color: var(--primary);
+    color: white;
+    font-weight: 600;
+}
+
+.table td {
+    border-color: var(--border-color);
+}
+
+.badge {
+    border-radius: 12px;
+    padding: 6px 12px;
+    font-weight: 500;
+}
+
+.badge.bg-success {
+    background-color: var(--status-green) !important;
+}
+
+/* Columns layout */
+.col-form {
+    flex: 0 0 40%;
+    max-width: 40%;
+    padding-right: 15px;
+}
+
+.col-table {
+    flex: 0 0 60%;
+    max-width: 60%;
+    padding-left: 15px;
+}
+
+.row-equal {
+    display: flex;
+    flex-wrap: wrap;
+    margin-right: -15px;
+    margin-left: -15px;
+}
+
+/* Form controls */
+.form-control {
+    border: 1px solid var(--primary);
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    background-color: var(--table-color);
+}
+
+.form-control:focus {
+    border-color: var(--section-green);
+    box-shadow: 0 0 0 0.25rem rgba(169, 196, 141, 0.25);
+}
+
+.form-label {
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+/* Responsive adjustments */
+@media (max-width: 992px) {
+    .col-form, .col-table {
+        flex: 0 0 100%;
+        max-width: 100%;
+        padding: 0;
+    }
 }
