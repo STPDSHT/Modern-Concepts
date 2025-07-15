@@ -6,7 +6,7 @@
     --main-bg: #f8f9fa;
     --card-bg: #ffffff;
     --primary: #8E6D53; /* Dark Brown */
-    --success: #A9C48D; /* Light Green */
+    --success: #ffffff; /* Light Green */
     --status-green: #4CAF50; /* Status Green */
     --warning: #ffc107;
     --danger: #dc3545;
@@ -148,15 +148,6 @@ body {
     background-color: var(--success);
     border-color: var(--success);
     color: var(--text-dark);
-    border-radius: 8px;
-    font-weight: 500;
-    padding: 8px 16px;
-}
-
-.btn-delete {
-    background-color: var(--danger);
-    border-color: var(--danger);
-    color: white;
     border-radius: 8px;
     font-weight: 500;
     padding: 8px 16px;

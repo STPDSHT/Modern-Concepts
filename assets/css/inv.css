@@ -26,10 +26,10 @@
 }
 
 body {
-    display: flex;
     min-height: 100vh;
     background-color: var(--main-bg);
     color: var(--text-medium);
+    overflow-x: hidden;
 }
 
 /* Sidebar Styles */
@@ -40,13 +40,16 @@ body {
     transition: var(--transition);
     height: 100vh;
     position: fixed;
+    top: 0;
+    left: 0;
     overflow-y: auto;
     z-index: 100;
+    padding: 20px;
+    box-sizing: border-box;
 }
 
 .sidebar-header {
-    padding: 24px 20px;
-    background: var(--sidebar-accent);
+    padding-bottom: 20px;
     border-bottom: 1px solid #b3907a;
 }
 
@@ -57,42 +60,139 @@ body {
     background-clip: text;
     -webkit-text-fill-color: transparent;
     letter-spacing: 0.8px;
-    padding-left: 10px;
 }
 
 .nav-links {
-    padding: 20px 0;
+    list-style: none;
+    padding: 0;
+    margin-top: 20px;
 }
 
 .nav-links li {
-    list-style: none;
-    position: relative;
+    margin-bottom: 15px;
 }
 
-.nav-links li a {
+.nav-links a {
+    color: #fff;
+    text-decoration: none;
     display: flex;
     align-items: center;
-    padding: 14px 20px;
-    text-decoration: none;
-    color: var(--sidebar-text);
-    font-size: 16px;
+    padding: 10px 12px;
+    border-radius: 5px;
     transition: var(--transition);
-    border-left: 3px solid transparent;
 }
 
-.nav-links li a:hover {
-    background: var(--sidebar-hover);
-    border-left: 3px solid var(--primary);
+.nav-links a i {
+    margin-right: 10px;
 }
 
-.nav-links li a.active {
-    background: var(--sidebar-hover);
-    border-left: 3px solid var(--primary);
+.nav-links a:hover,
+.nav-links a.active {
+    background-color: #fff;
+    color: #333;
 }
 
-.nav-links li a i {
-    margin-right: 12px;
-    width: 24px;
-    text-align: center;
-    font-size: 18px;
+/* Main Content */
+.main-content {
+    margin-left: 260px;
+    padding: 30px;
+    background-color: #F5F7FA;
+    min-height: 100vh;
+}
+
+.main-title {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--primary);
+    margin-bottom: 30px;
+}
+
+.section-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: var(--primary);
+}
+
+/* Form & Table containers */
+.form-container,
+.employee-container {
+    background-color: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
+}
+
+/* Bootstrap override */
+.form-label {
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+.form-control {
+    width: 100%;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: #fff;
+}
+
+.form-control:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.25);
+}
+
+.button-group {
+    margin-top: 10px;
+}
+
+.btn-add {
+    background-color: var(--success);
+    border-color: var(--success);
+    color: white;
+    border-radius: 8px;
+    font-weight: 500;
+    padding: 8px 16px;
+}
+
+.table {
+    width: 100%;
+    background-color: #fff;
+}
+
+.table th {
+    background-color: var(--primary);
+    color: #fff;
+    font-weight: 600;
+}
+
+.table td {
+    vertical-align: middle;
+}
+.low-stock {
+    background-color: #f8d7da !important;
+    color: #842029;
+}
+.card-title {
+    margin-bottom: 1rem;
+}
+
+.card .border {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .main-content {
+        margin-left: 0;
+        padding: 15px;
+    }
+
+    .sidebar {
+        position: relative;
+        width: 100%;
+        height: auto;
+    }
 }

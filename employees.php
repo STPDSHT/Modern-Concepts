@@ -4,11 +4,7 @@ $pdo = new PDO("mysql:host=localhost;dbname=modern_concept", "root", "");
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_employee'])) {
     $name = $_POST['name'];
-    $role = $_POST['role'];
-    $delivery = $_POST['delivery'];
     $contact = $_POST['contact'];
-    $task = $_POST['task'];
-    $product_delivery = $_POST['product_delivery'];
     $status = 'Active';
     $photo = '';
 
@@ -18,8 +14,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_employee'])) {
         move_uploaded_file($_FILES["photo"]["tmp_name"], $targetDir . $photo);
     }
 
-    $stmt = $pdo->prepare("INSERT INTO employees (name, role, delivery, contact, task, product_delivery, photo, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$name, $role, $delivery, $contact, $task, $product_delivery, $photo, $status]);
+    $stmt = $pdo->prepare("INSERT INTO employees (name, contact, photo, status) VALUES (?, ?, ?, ?)");
+    $stmt->execute([$name, $contact, $photo, $status]);
 }
 
 // Handle deletion
@@ -45,6 +41,7 @@ $employees = $pdo->query("SELECT * FROM employees")->fetchAll(PDO::FETCH_ASSOC);
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -53,6 +50,7 @@ $employees = $pdo->query("SELECT * FROM employees")->fetchAll(PDO::FETCH_ASSOC);
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="assets/css/emp.css">
 </head>
+
 <body>
     <div class="sidebar">
         <div class="sidebar-header">
@@ -73,7 +71,7 @@ $employees = $pdo->query("SELECT * FROM employees")->fetchAll(PDO::FETCH_ASSOC);
     <div class="main-content">
         <div class="container-fluid">
             <h2 class="main-title">Employee Management</h2>
-            
+
             <div class="row row-equal">
                 <!-- Add Employee Form Column -->
                 <div class="col-form">
@@ -90,33 +88,16 @@ $employees = $pdo->query("SELECT * FROM employees")->fetchAll(PDO::FETCH_ASSOC);
                                 <input type="text" name="name" required class="form-control">
                             </div>
                             <div class="mb-3">
-                                <label class="form-label">Role</label>
-                                <input type="text" name="role" required class="form-control">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Delivery</label>
-                                <input type="text" name="delivery" class="form-control">
-                            </div>
-                            <div class="mb-3">
                                 <label class="form-label">Contact</label>
                                 <input type="text" name="contact" class="form-control">
                             </div>
-                            <div class="mb-3">
-                                <label class="form-label">Assign task</label>
-                                <input type="text" name="task" class="form-control">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Product delivery</label>
-                                <input type="text" name="product_delivery" class="form-control">
-                            </div>
                             <div class="button-group">
                                 <button type="submit" class="btn btn-add">Add</button>
-                                <button type="button" class="btn btn-delete">Delete</button>
                             </div>
                         </form>
                     </div>
                 </div>
-                
+
                 <!-- Employee List Column -->
                 <div class="col-table">
                     <div class="employee-container">
@@ -127,41 +108,35 @@ $employees = $pdo->query("SELECT * FROM employees")->fetchAll(PDO::FETCH_ASSOC);
                                     <tr>
                                         <th scope="col">Photo</th>
                                         <th scope="col">Name</th>
-                                        <th scope="col">Role</th>
-                                        <th scope="col">Delivery</th>
                                         <th scope="col">Contact</th>
-                                        <th scope="col">Task</th>
                                         <th scope="col">Status</th>
                                         <th scope="col">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php foreach ($employees as $emp): ?>
-                                    <tr>
-                                        <td>
-                                            <?php if ($emp['photo']): ?>
-                                                <img src="uploads/<?= htmlspecialchars($emp['photo']) ?>" class="employee-photo">
-                                            <?php else: ?>
-                                                N/A
-                                            <?php endif; ?>
-                                        </td>
-                                        <td><?= htmlspecialchars($emp['name']) ?></td>
-                                        <td><?= htmlspecialchars($emp['role']) ?></td>
-                                        <td><?= htmlspecialchars($emp['delivery'] ?? '') ?></td>
-                                        <td><?= htmlspecialchars($emp['contact'] ?? '') ?></td>
-                                        <td><?= htmlspecialchars($emp['task'] ?? '') ?></td>
-                                        <td>
-                                            <span class="badge bg-<?= $emp['status'] === 'Active' ? 'success' : 'secondary' ?>">
-                                                <?= htmlspecialchars($emp['status']) ?>
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <form method="POST" onsubmit="return confirm('Are you sure you want to delete this employee?');">
-                                                <input type="hidden" name="employee_id" value="<?= $emp['id'] ?>">
-                                                <button type="submit" name="delete_employee" class="btn btn-danger btn-sm">Remove</button>
-                                            </form>
-                                        </td>
-                                    </tr>
+                                        <tr>
+                                            <td>
+                                                <?php if ($emp['photo']): ?>
+                                                    <img src="uploads/<?= htmlspecialchars($emp['photo']) ?>" class="employee-photo">
+                                                <?php else: ?>
+                                                    N/A
+                                                <?php endif; ?>
+                                            </td>
+                                            <td><?= htmlspecialchars($emp['name']) ?></td>
+                                            <td><?= htmlspecialchars($emp['contact'] ?? '') ?></td>
+                                            <td>
+                                                <span class="badge bg-<?= $emp['status'] === 'Active' ? 'success' : 'secondary' ?>">
+                                                    <?= htmlspecialchars($emp['status']) ?>
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <form method="POST" onsubmit="return confirm('Are you sure you want to delete this employee?');">
+                                                    <input type="hidden" name="employee_id" value="<?= $emp['id'] ?>">
+                                                    <button type="submit" name="delete_employee" class="btn btn-danger btn-sm">Remove</button>
+                                                </form>
+                                            </td>
+                                        </tr>
                                     <?php endforeach; ?>
                                 </tbody>
                             </table>
@@ -172,4 +147,5 @@ $employees = $pdo->query("SELECT * FROM employees")->fetchAll(PDO::FETCH_ASSOC);
         </div>
     </div>
 </body>
+
 </html>

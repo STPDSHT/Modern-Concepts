@@ -345,7 +345,7 @@ $latestOrder = count($orders) > 0 ? [
             </div>
         </div>
 
-        <<!-- Orders Table -->
+        <!-- Orders Table -->
             <div class="table-container">
                 <div class="table-header">Order ID</div>
                 <table class="orders-table">
