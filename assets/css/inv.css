@@ -3,21 +3,23 @@
     --sidebar-accent: #b3907a;
     --sidebar-text: #e2e8f0;
     --sidebar-hover: #cabdad;
-    --main-bg: #f1f5f9;
+    --main-bg: #f8f9fa;
     --card-bg: #ffffff;
-    --primary: #3b82f6;
-    --success: #10b981;
-    --warning: #f59e0b;
-    --danger: #ef4444;
-    --text-dark: #0f172a;
-    --text-medium: #334155;
-    --text-light: #64748b;
-    --border-color: #e2e8f0;
-    --shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    --primary: #8E6D53;
+    --success: #A9C48D;
+    --warning: #ffc107;
+    --danger: #dc3545;
+    --text-dark: #212529;
+    --text-medium: #495057;
+    --text-light: #6c757d;
+    --border-color: #dee2e6;
+    --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     --transition: all 0.3s ease;
+    --section-green: #A9C48D;
+    --table-color: #ede2cb;
 }
 
-/* Reset & Base Styles */
+/* Base Styles */
 * {
     margin: 0;
     padding: 0;
@@ -29,7 +31,6 @@ body {
     min-height: 100vh;
     background-color: var(--main-bg);
     color: var(--text-medium);
-    overflow-x: hidden;
 }
 
 /* Sidebar Styles */
@@ -37,19 +38,15 @@ body {
     width: 260px;
     background: var(--sidebar-bg);
     color: var(--sidebar-text);
-    transition: var(--transition);
     height: 100vh;
     position: fixed;
-    top: 0;
-    left: 0;
     overflow-y: auto;
     z-index: 100;
-    padding: 20px;
-    box-sizing: border-box;
 }
 
 .sidebar-header {
-    padding-bottom: 20px;
+    padding: 24px 20px;
+    background: var(--sidebar-accent);
     border-bottom: 1px solid #b3907a;
 }
 
@@ -60,139 +57,185 @@ body {
     background-clip: text;
     -webkit-text-fill-color: transparent;
     letter-spacing: 0.8px;
+    padding-left: 10px;
 }
 
 .nav-links {
-    list-style: none;
-    padding: 0;
-    margin-top: 20px;
+    padding: 20px 0;
 }
 
 .nav-links li {
-    margin-bottom: 15px;
+    list-style: none;
+    position: relative;
 }
 
-.nav-links a {
-    color: #fff;
-    text-decoration: none;
+.nav-links li a {
     display: flex;
     align-items: center;
-    padding: 10px 12px;
-    border-radius: 5px;
+    padding: 14px 20px;
+    text-decoration: none;
+    color: var(--sidebar-text);
+    font-size: 16px;
     transition: var(--transition);
+    border-left: 3px solid transparent;
 }
 
-.nav-links a i {
-    margin-right: 10px;
+.nav-links li a:hover,
+.nav-links li a.active {
+    background: var(--sidebar-hover);
+    border-left: 3px solid var(--primary);
+    color: var(--text-dark);
 }
 
-.nav-links a:hover,
-.nav-links a.active {
-    background-color: #fff;
-    color: #333;
+.nav-links li a i {
+    margin-right: 12px;
+    width: 24px;
+    text-align: center;
+    font-size: 18px;
 }
 
 /* Main Content */
 .main-content {
     margin-left: 260px;
-    padding: 30px;
-    background-color: #F5F7FA;
-    min-height: 100vh;
+    width: calc(100% - 260px);
+    padding: 20px;
 }
 
 .main-title {
-    font-size: 28px;
-    font-weight: 600;
     color: var(--primary);
-    margin-bottom: 30px;
+    margin-bottom: 1.5rem;
+    font-weight: 600;
+    font-size: 28px;
+}
+
+/* Inventory Card */
+.inventory-card {
+    background-color: var(--section-green);
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--primary);
 }
 
 .section-title {
-    font-size: 20px;
-    font-weight: 600;
-    margin-bottom: 20px;
     color: var(--primary);
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--primary);
 }
 
-/* Form & Table containers */
-.form-container,
-.employee-container {
-    background-color: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    padding: 20px;
-    box-shadow: var(--shadow);
-    margin-bottom: 20px;
-}
-
-/* Bootstrap override */
-.form-label {
-    font-weight: 600;
+.tracking-info {
+    background-color: var(--table-color);
+    padding: 12px;
+    border-radius: 8px;
+    margin-bottom: 15px;
     color: var(--text-dark);
+}
+
+.tracking-info p {
+    margin-bottom: 0;
+}
+
+/* Tables */
+.inventory-table {
+    width: 100%;
+    margin-bottom: 20px;
+    background-color: var(--card-bg);
+    border-collapse: collapse;
+}
+
+.inventory-table th {
+    background-color: var(--primary);
+    color: white;
+    font-weight: 600;
+    padding: 12px 15px;
+    text-align: left;
+}
+
+.inventory-table td {
+    padding: 12px 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* Buttons */
+.btn-edit, .btn-delete, .btn-update {
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-weight: 500;
+    text-decoration: none;
+    margin-right: 5px;
+}
+
+.btn-edit {
+    background-color: var(--warning);
+    color: var(--text-dark);
+}
+
+.btn-delete {
+    background-color: var(--danger);
+    color: white;
+}
+
+.btn-update {
+    background-color: var(--primary);
+    color: white;
+    border: none;
+}
+
+/* Form Styles */
+.edit-form {
+    background-color: var(--table-color);
+}
+
+.form-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.form-group {
+    flex: 1;
 }
 
 .form-control {
     width: 100%;
+    padding: 8px 12px;
     border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background-color: var(--card-bg);
+}
+
+/* Logo Section */
+.logo-section {
+    margin-top: 20px;
+}
+
+.logo-info {
+    background-color: var(--table-color);
+    padding: 12px;
     border-radius: 8px;
-    background-color: #fff;
 }
 
-.form-control:focus {
-    border-color: var(--primary);
-    box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.25);
-}
-
-.button-group {
-    margin-top: 10px;
-}
-
-.btn-add {
-    background-color: var(--success);
-    border-color: var(--success);
-    color: white;
-    border-radius: 8px;
-    font-weight: 500;
-    padding: 8px 16px;
-}
-
-.table {
-    width: 100%;
-    background-color: #fff;
-}
-
-.table th {
-    background-color: var(--primary);
-    color: #fff;
-    font-weight: 600;
-}
-
-.table td {
-    vertical-align: middle;
-}
-.low-stock {
-    background-color: #f8d7da !important;
-    color: #842029;
-}
-.card-title {
-    margin-bottom: 1rem;
-}
-
-.card .border {
-    font-size: 14px;
-    font-weight: 600;
+.logo-info p {
+    margin-bottom: 5px;
 }
 
 /* Responsive */
-@media (max-width: 768px) {
+@media (max-width: 992px) {
     .main-content {
         margin-left: 0;
-        padding: 15px;
+        width: 100%;
     }
-
+    
     .sidebar {
-        position: relative;
         width: 100%;
         height: auto;
+        position: relative;
+    }
+    
+    .form-row {
+        flex-direction: column;
     }
 }

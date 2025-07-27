@@ -38,7 +38,6 @@ if (isset($_GET['delete'])) {
 </head>
 
 <body>
-
     <!-- Sidebar -->
     <div class="sidebar">
         <div class="sidebar-header">
@@ -59,10 +58,16 @@ if (isset($_GET['delete'])) {
     <!-- Main Content -->
     <div class="main-content">
         <div class="container-fluid">
-            <h2 class="main-title">T-Shirt Inventory</h2>
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2 class="main-title">Inventory</h2>
+                <div class="date-range">
+                    <span>Jan 1, 2025 - Jan 31, 2025</span>
+                    <a href="#" class="btn btn-outline-primary btn-sm ms-3">Export to PDF</a>
+                </div>
+            </div>
 
+            <!-- Inventory Summary by Size -->
             <?php
-            // Inventory Summary by Size
             $sizeSummary = [];
             $sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
             foreach ($sizes as $size) {
@@ -79,7 +84,6 @@ if (isset($_GET['delete'])) {
             }
             ?>
 
-            <!-- Summary Box -->
             <div class="card mb-4">
                 <div class="card-body">
                     <h5 class="card-title text-primary">Inventory Summary by Size</h5>
@@ -94,49 +98,25 @@ if (isset($_GET['delete'])) {
                 </div>
             </div>
 
-            <div class="row">
-                <!-- Add Form -->
-                <div class="col-md-5">
-                    <div class="form-container">
-                        <h3 class="section-title">Add/Edit T-Shirt</h3>
-                        <form action="inventory.php" method="POST">
-                            <input type="hidden" name="add" value="1">
-                            <div class="mb-3">
-                                <label class="form-label">T-Shirt Name</label>
-                                <input type="text" name="name" required class="form-control">
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Size</label>
-                                <select name="size" class="form-control" required>
-                                    <option value="">Select Size</option>
-                                    <option>XS</option>
-                                    <option>S</option>
-                                    <option>M</option>
-                                    <option>L</option>
-                                    <option>XL</option>
-                                    <option>XXL</option>
-                                </select>
-                            </div>
-                            <div class="mb-3">
-                                <label class="form-label">Quantity</label>
-                                <input type="number" name="quantity" required class="form-control">
-                            </div>
-                            <div class="button-group">
-                                <button type="submit" class="btn btn-add">Add</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-
-                <!-- Table -->
-                <div class="col-md-7">
-                    <div class="employee-container">
-                        <table class="table table-bordered">
+            <!-- Main Card -->
+            <div class="card inventory-card">
+                <div class="card-body">
+                    <!-- Tracking Section -->
+                    <div class="tracking-section mb-5">
+                        <h4 class="section-title">Tracking</h4>
+                        <div class="tracking-info mb-3">
+                            <p><strong>Size</strong><br>
+                            Color<br>
+                            In Stock</p>
+                        </div>
+                        
+                        <table class="table tracking-table">
                             <thead>
                                 <tr>
-                                    <th>Name</th>
+                                    <th></th>
                                     <th>Size</th>
-                                    <th>Quantity</th>
+                                    <th>Color</th>
+                                    <th>In Stock</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -146,10 +126,10 @@ if (isset($_GET['delete'])) {
                                 $stmt = $conn->query("SELECT * FROM tshirt_inventory");
                                 while ($row = $stmt->fetch()) {
                                     $isLowStock = $row['quantity'] <= ($thresholds[$row['size']] ?? 0);
-                                    $rowClass = $isLowStock ? 'table-danger' : '';
+                                    $rowClass = $isLowStock ? 'low-stock' : '';
                                     echo "<tr class='$rowClass'>";
-                                    echo "<td>{$row['name']}</td>";
                                     echo "<td>{$row['size']}</td>";
+                                    echo "<td>{$row['name']}</td>";
                                     $badge = $isLowStock ? "<span class='badge bg-danger ms-2'>Low Stock</span>" : "";
                                     echo "<td>{$row['quantity']} $badge</td>";
                                     echo "<td>
@@ -158,9 +138,8 @@ if (isset($_GET['delete'])) {
                                       </td>";
                                     echo "</tr>";
 
-                                    // Edit form
                                     if (isset($_GET['edit']) && $_GET['edit'] == $row['id']) {
-                                        echo "<tr><td colspan='4'>
+                                        echo "<tr><td colspan='5'>
                                             <form method='POST'>
                                                 <input type='hidden' name='id' value='{$row['id']}'>
                                                 <div class='row g-2'>
@@ -192,11 +171,65 @@ if (isset($_GET['delete'])) {
                             </tbody>
                         </table>
                     </div>
+
+                    <!-- Bottom Section -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h4 class="section-title">Track Levels</h4>
+                            <div class="tracking-info mb-3">
+                                <p><strong>Size</strong><br>
+                                Color<br>
+                                In Stock</p>
+                            </div>
+                            
+                            <table class="table levels-table">
+                                <thead>
+                                    <tr>
+                                        <th></th>
+                                        <th>Size</th>
+                                        <th>Color</th>
+                                        <th>In Stock</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php
+                                    $stmt = $conn->query("SELECT * FROM tshirt_inventory");
+                                    while ($row = $stmt->fetch()) {
+                                        echo "<tr>";
+                                        echo "<td>{$row['size']}</td>";
+                                        echo "<td>{$row['name']}</td>";
+                                        echo "<td>{$row['quantity']}</td>";
+                                        echo "</tr>";
+                                    }
+                                    ?>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <h4 class="section-title">Logo</h4>
+                            <ul class="logo-info">
+                                <?php
+                                $lowStockItems = [];
+                                $stmt = $conn->query("SELECT * FROM tshirt_inventory WHERE quantity <= 10");
+                                while ($row = $stmt->fetch()) {
+                                    $lowStockItems[] = "- {$row['name']} ({$row['size']})";
+                                }
+                                
+                                if (!empty($lowStockItems)) {
+                                    echo "<li><strong>Low stock</strong></li>";
+                                    foreach ($lowStockItems as $item) {
+                                        echo "<li>$item</li>";
+                                    }
+                                } else {
+                                    echo "<li>No low stock items</li>";
+                                }
+                                ?>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-
 </body>
-
 </html>

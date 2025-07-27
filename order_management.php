@@ -58,15 +58,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['client_name'])) {
 
 // Update status
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
+    $orderId = $_POST['order_id'];
+    $newStatus = $_POST['new_status'];
+
+    // Update the order status
     $stmt = $pdo->prepare("UPDATE orders SET status = ? WHERE id = ?");
-    $stmt->execute([
-        $_POST['new_status'],
-        $_POST['order_id']
-    ]);
+    $stmt->execute([$newStatus, $orderId]);
+
+    // If status is set to "Done", insert salary record
+    if ($newStatus === 'Done') {
+        // Get order info
+        $stmt = $pdo->prepare("SELECT assigned_employee, quantity FROM orders WHERE id = ?");
+        $stmt->execute([$orderId]);
+        $order = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // Make sure order and employee are found
+        if ($order) {
+            $employeeId = $order['assigned_employee'];
+            $quantity = $order['quantity'];
+
+            // Get employee salary rate
+            $stmt = $pdo->prepare("SELECT salary_rate FROM employees WHERE id = ?");
+            $stmt->execute([$employeeId]);
+            $employee = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($employee) {
+                $rate = $employee['salary_rate'];
+                $salary = $rate * $quantity;
+
+                // Insert salary record
+                $stmt = $pdo->prepare("INSERT INTO employee_salaries (order_id, employee_id, salary_amount, quantity, rate)
+                                       VALUES (?, ?, ?, ?, ?)");
+                $stmt->execute([$orderId, $employeeId, $salary, $quantity, $rate]);
+            }
+        }
+    }
 
     header('Location: order_management.php');
     exit;
 }
+
 
 // Delete order
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_order'])) {
@@ -86,7 +117,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_order'])) {
 }
 
 // Fetch all orders
-$orders = $pdo->query("SELECT * FROM orders ORDER BY id DESC")->fetchAll(PDO::FETCH_ASSOC);
+$orders = $pdo->query("
+    SELECT o.*, e.name AS employee_name 
+    FROM orders o 
+    LEFT JOIN employees e ON o.assigned_employee = e.id 
+    ORDER BY o.id DESC
+")->fetchAll(PDO::FETCH_ASSOC);
+
 
 // Status counts and stats
 $pendingCount = 0;
@@ -238,7 +275,8 @@ $latestOrder = count($orders) > 0 ? [
                         <label for="assignedEmployee">Assign Employee</label>
                         <select id="assignedEmployee" name="assigned_employee" class="form-control" required>
                             <?php foreach ($employees as $employee): ?>
-                                <option value="<?php echo htmlspecialchars($employee['name']); ?>">
+                                <option value="<?php echo htmlspecialchars($employee['id']); ?>">
+
                                     <?php echo htmlspecialchars($employee['name']); ?>
                                 </option>
                             <?php endforeach; ?>
@@ -346,57 +384,62 @@ $latestOrder = count($orders) > 0 ? [
         </div>
 
         <!-- Orders Table -->
-            <div class="table-container">
-                <div class="table-header">Order ID</div>
-                <table class="orders-table">
-                    <thead>
-                        <tr>
-                            <th>Image</th>
-                            <th>Order ID</th>
-                            <th>Client Name</th>
-                            <th>Assigned Employee</th>
-                            <th>Status</th>
-                            <th>Deadline</th>
-                            <th>Total Price</th> <!-- NEW COLUMN -->
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (count($orders) > 0): ?>
-                            <?php foreach ($orders as $order): ?>
-                                <tr>
-                                    <td class="order-image-cell">
-                                        <?php if (!empty($order['image_path'])): ?>
-                                            <img src="<?php echo $order['image_path']; ?>" alt="Design" class="order-image">
-                                        <?php else: ?>
-                                            <div class="image-placeholder">
-                                                <i class="fas fa-image"></i>
-                                            </div>
-                                        <?php endif; ?>
-                                    </td>
-                                    <td><?php echo $order['id']; ?></td>
-                                    <td><?php echo $order['client_name']; ?></td>
-                                    <td><?php echo $order['assigned_employee']; ?></td>
-                                    <td>
-                                        <span class="status-badge status-<?php echo strtolower($order['status']); ?>">
-                                            <?php echo $order['status']; ?>
-                                        </span>
-                                    </td>
-                                    <td><?php echo $order['deadline']; ?></td>
-                                    <td>₱<?php echo number_format($order['total_price'], 2); ?></td> <!-- NEW VALUE -->
-                                    <td>
-                                        <div class="status-actions">
-                                            <form method="POST" class="status-form" onsubmit="return false;">
-                                                <input type="hidden" name="order_id" value="<?php echo $order['id']; ?>">
-                                                <input type="hidden" name="new_status" value="<?php echo $order['status'] === 'Done' ? 'Pending' : 'Done'; ?>">
-                                                <input type="hidden" name="update_status" value="">
-                                                <label>
-                                                    <input type="checkbox"
-                                                        onchange="toggleStatus(this)"
-                                                        <?php echo $order['status'] === 'Done' ? 'checked' : ''; ?>>
-                                                    Done
-                                                </label>
-                                            </form>
+        <div class="table-container">
+            <div class="table-header">Order ID</div>
+            <table class="orders-table">
+                <thead>
+                    <tr>
+                        <th>Image</th>
+                        <th>Order ID</th>
+                        <th>Client Name</th>
+                        <th>Assigned Employee</th>
+                        <th>Status</th>
+                        <th>Deadline</th>
+                        <th>Total Price</th> <!-- NEW COLUMN -->
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if (count($orders) > 0): ?>
+                        <?php foreach ($orders as $order): ?>
+                            <tr>
+                                <td class="order-image-cell">
+                                    <?php if (!empty($order['image_path'])): ?>
+                                        <img src="<?php echo $order['image_path']; ?>" alt="Design" class="order-image">
+                                    <?php else: ?>
+                                        <div class="image-placeholder">
+                                            <i class="fas fa-image"></i>
+                                        </div>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?php echo $order['id']; ?></td>
+                                <td><?php echo $order['client_name']; ?></td>
+                                <td><?php echo htmlspecialchars($order['employee_name']); ?></td>
+                                <td>
+                                    <span class="status-badge status-<?php echo strtolower($order['status']); ?>">
+                                        <?php echo $order['status']; ?>
+                                    </span>
+                                </td>
+                                <td><?php echo $order['deadline']; ?></td>
+                                <td>₱<?php echo number_format($order['total_price'], 2); ?></td> <!-- NEW VALUE -->
+                                <td>
+                                    <div class="status-actions">
+                                        <form method="POST" class="status-form" onsubmit="return false;">
+                                            <input type="hidden" name="order_id" value="<?php echo $order['id']; ?>">
+                                            <input type="hidden" name="new_status" value="<?php echo $order['status'] === 'Done' ? 'Pending' : 'Done'; ?>">
+                                            <input type="hidden" name="update_status" value="">
+                                            <label>
+                                                <input type="checkbox"
+                                                    onchange="toggleStatus(this)"
+                                                    <?php echo $order['status'] === 'Done' ? 'checked' : ''; ?>>
+                                                Done
+                                            </label>
+                                        </form>
+                                        <div class="status-selector">
+                                            <select class="status-select" data-order-id="<?php echo $order['id']; ?>">
+                                                <option value="Pending" <?php echo $order['status'] === 'Pending' ? 'selected' : ''; ?>>Pending</option>
+                                                <option value="Delivered" <?php echo $order['status'] === 'Delivered' ? 'selected' : ''; ?>>Delivered</option>
+                                            </select>
                                             <form method="POST" class="delete-form">
                                                 <input type="hidden" name="delete_order" value="1">
                                                 <input type="hidden" name="order_id" value="<?php echo $order['id']; ?>">
@@ -404,167 +447,161 @@ $latestOrder = count($orders) > 0 ? [
                                                     <i class="fas fa-trash"></i>
                                                 </button>
                                             </form>
-
-                                            <div class="status-selector">
-                                                <select class="status-select" data-order-id="<?php echo $order['id']; ?>">
-                                                    <option value="Pending" <?php echo $order['status'] === 'Pending' ? 'selected' : ''; ?>>Pending</option>
-                                                    <option value="Delivered" <?php echo $order['status'] === 'Delivered' ? 'selected' : ''; ?>>Delivered</option>
-                                                </select>
-                                            </div>
                                         </div>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <tr>
-                                <td colspan="8" class="no-orders-row">
-                                    <div class="no-orders-message">
-                                        <i class="fas fa-inbox"></i>
-                                        <p>No orders found</p>
                                     </div>
                                 </td>
                             </tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
-            </div>
-            <script>
-                // Delete confirmation
-                document.querySelectorAll('.delete-form').forEach(form => {
-                    form.addEventListener('submit', function(e) {
-                        if (!confirm('Are you sure you want to delete this order?')) {
-                            e.preventDefault();
-                        }
-                    });
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr>
+                            <td colspan="8" class="no-orders-row">
+                                <div class="no-orders-message">
+                                    <i class="fas fa-inbox"></i>
+                                    <p>No orders found</p>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+        <script>
+            // Delete confirmation
+            document.querySelectorAll('.delete-form').forEach(form => {
+                form.addEventListener('submit', function(e) {
+                    if (!confirm('Are you sure you want to delete this order?')) {
+                        e.preventDefault();
+                    }
                 });
-                // Simple JavaScript for navigation and active states
-                document.addEventListener('DOMContentLoaded', function() {
-                    // Set active navigation link
-                    const navLinks = document.querySelectorAll('.nav-links a');
+            });
+            // Simple JavaScript for navigation and active states
+            document.addEventListener('DOMContentLoaded', function() {
+                // Set active navigation link
+                const navLinks = document.querySelectorAll('.nav-links a');
 
-                    navLinks.forEach(link => {
-                        link.addEventListener('click', function(e) {
-                            navLinks.forEach(item => item.classList.remove('active'));
-                            this.classList.add('active');
-                        });
-                    });
-
-                    // Toggle sidebar on mobile
-                    const sidebar = document.querySelector('.sidebar');
-                    document.querySelector('.mobile-menu-btn').addEventListener('click', function() {
-                        sidebar.classList.toggle('active');
-                    });
-
-                    // Set minimum date for deadline (today)
-                    const today = new Date().toISOString().split('T')[0];
-                    document.getElementById('deadline').min = today;
-
-                    // File upload display
-                    const fileInput = document.getElementById('designImage');
-                    const fileNameDisplay = document.getElementById('fileName');
-
-                    fileInput.addEventListener('change', function() {
-                        if (this.files.length > 0) {
-                            fileNameDisplay.textContent = this.files[0].name;
-                        } else {
-                            fileNameDisplay.textContent = 'No file selected';
-                        }
-                    });
-
-                    // Status selector functionality
-                    document.querySelectorAll('.status-select').forEach(select => {
-                        select.addEventListener('change', function() {
-                            const orderId = this.dataset.orderId;
-                            const newStatus = this.value;
-
-                            // Create a form to submit the status change
-                            const form = document.createElement('form');
-                            form.method = 'POST';
-                            form.style.display = 'none';
-
-                            const orderIdInput = document.createElement('input');
-                            orderIdInput.type = 'hidden';
-                            orderIdInput.name = 'order_id';
-                            orderIdInput.value = orderId;
-
-                            const statusInput = document.createElement('input');
-                            statusInput.type = 'hidden';
-                            statusInput.name = 'new_status';
-                            statusInput.value = newStatus;
-
-                            const updateInput = document.createElement('input');
-                            updateInput.type = 'hidden';
-                            updateInput.name = 'update_status';
-                            updateInput.value = '1';
-
-                            form.appendChild(orderIdInput);
-                            form.appendChild(statusInput);
-                            form.appendChild(updateInput);
-
-                            document.body.appendChild(form);
-                            form.submit();
-                        });
+                navLinks.forEach(link => {
+                    link.addEventListener('click', function(e) {
+                        navLinks.forEach(item => item.classList.remove('active'));
+                        this.classList.add('active');
                     });
                 });
 
-                function toggleStatus(checkbox) {
-                    const form = checkbox.closest('form');
-                    const hiddenInput = form.querySelector('input[name="new_status"]');
-                    const orderId = form.querySelector('input[name="order_id"]').value;
-                    const updateStatusInput = form.querySelector('input[name="update_status"]');
+                // Toggle sidebar on mobile
+                const sidebar = document.querySelector('.sidebar');
+                document.querySelector('.mobile-menu-btn').addEventListener('click', function() {
+                    sidebar.classList.toggle('active');
+                });
 
-                    hiddenInput.value = checkbox.checked ? 'Done' : 'Pending';
-                    updateStatusInput.value = '1'; // Important: set this so PHP handles update
+                // Set minimum date for deadline (today)
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('deadline').min = today;
 
-                    const postData = new FormData(form);
+                // File upload display
+                const fileInput = document.getElementById('designImage');
+                const fileNameDisplay = document.getElementById('fileName');
 
-                    fetch('', {
-                        method: 'POST',
-                        body: postData
-                    }).then(() => {
-                        location.reload();
-                    });
-                }
-                // New function to switch between Pending and Delivered using the dropdown
-                function toggleDeliveryStatus(select) {
-                    const orderId = select.dataset.orderId;
-                    const newStatus = select.value;
+                fileInput.addEventListener('change', function() {
+                    if (this.files.length > 0) {
+                        fileNameDisplay.textContent = this.files[0].name;
+                    } else {
+                        fileNameDisplay.textContent = 'No file selected';
+                    }
+                });
 
-                    // Create a hidden form for submission
-                    const form = document.createElement('form');
-                    form.method = 'POST';
-                    form.style.display = 'none';
-
-                    const orderIdInput = document.createElement('input');
-                    orderIdInput.type = 'hidden';
-                    orderIdInput.name = 'order_id';
-                    orderIdInput.value = orderId;
-
-                    const statusInput = document.createElement('input');
-                    statusInput.type = 'hidden';
-                    statusInput.name = 'new_status';
-                    statusInput.value = newStatus;
-
-                    const updateStatusInput = document.createElement('input');
-                    updateStatusInput.type = 'hidden';
-                    updateStatusInput.name = 'update_status';
-                    updateStatusInput.value = '1';
-
-                    form.appendChild(orderIdInput);
-                    form.appendChild(statusInput);
-                    form.appendChild(updateStatusInput);
-
-                    document.body.appendChild(form);
-                    form.submit();
-                }
-
-                // Attach the event listeners for the dropdowns
+                // Status selector functionality
                 document.querySelectorAll('.status-select').forEach(select => {
                     select.addEventListener('change', function() {
-                        toggleDeliveryStatus(this);
+                        const orderId = this.dataset.orderId;
+                        const newStatus = this.value;
+
+                        // Create a form to submit the status change
+                        const form = document.createElement('form');
+                        form.method = 'POST';
+                        form.style.display = 'none';
+
+                        const orderIdInput = document.createElement('input');
+                        orderIdInput.type = 'hidden';
+                        orderIdInput.name = 'order_id';
+                        orderIdInput.value = orderId;
+
+                        const statusInput = document.createElement('input');
+                        statusInput.type = 'hidden';
+                        statusInput.name = 'new_status';
+                        statusInput.value = newStatus;
+
+                        const updateInput = document.createElement('input');
+                        updateInput.type = 'hidden';
+                        updateInput.name = 'update_status';
+                        updateInput.value = '1';
+
+                        form.appendChild(orderIdInput);
+                        form.appendChild(statusInput);
+                        form.appendChild(updateInput);
+
+                        document.body.appendChild(form);
+                        form.submit();
                     });
                 });
-            </script>
+            });
+
+            function toggleStatus(checkbox) {
+                const form = checkbox.closest('form');
+                const hiddenInput = form.querySelector('input[name="new_status"]');
+                const orderId = form.querySelector('input[name="order_id"]').value;
+                const updateStatusInput = form.querySelector('input[name="update_status"]');
+
+                hiddenInput.value = checkbox.checked ? 'Done' : 'Pending';
+                updateStatusInput.value = '1'; // Important: set this so PHP handles update
+
+                const postData = new FormData(form);
+
+                fetch('', {
+                    method: 'POST',
+                    body: postData
+                }).then(() => {
+                    location.reload();
+                });
+            }
+            // New function to switch between Pending and Delivered using the dropdown
+            function toggleDeliveryStatus(select) {
+                const orderId = select.dataset.orderId;
+                const newStatus = select.value;
+
+                // Create a hidden form for submission
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.style.display = 'none';
+
+                const orderIdInput = document.createElement('input');
+                orderIdInput.type = 'hidden';
+                orderIdInput.name = 'order_id';
+                orderIdInput.value = orderId;
+
+                const statusInput = document.createElement('input');
+                statusInput.type = 'hidden';
+                statusInput.name = 'new_status';
+                statusInput.value = newStatus;
+
+                const updateStatusInput = document.createElement('input');
+                updateStatusInput.type = 'hidden';
+                updateStatusInput.name = 'update_status';
+                updateStatusInput.value = '1';
+
+                form.appendChild(orderIdInput);
+                form.appendChild(statusInput);
+                form.appendChild(updateStatusInput);
+
+                document.body.appendChild(form);
+                form.submit();
+            }
+
+            // Attach the event listeners for the dropdowns
+            document.querySelectorAll('.status-select').forEach(select => {
+                select.addEventListener('change', function() {
+                    toggleDeliveryStatus(this);
+                });
+            });
+        </script>
 </body>
 
 </html>
