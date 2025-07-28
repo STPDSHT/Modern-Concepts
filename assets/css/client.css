@@ -96,3 +96,22 @@ body {
     text-align: center;
     font-size: 18px;
 }
+.main-content {
+    margin-left: 260px; /* same as sidebar width */
+    padding: 20px;
+    width: calc(100% - 260px);
+    background-color: var(--main-bg);
+    min-height: 100vh;
+}
+@media (max-width: 768px) {
+    .sidebar {
+        position: relative;
+        width: 100%;
+        height: auto;
+    }
+
+    .main-content {
+        margin-left: 0;
+        width: 100%;
+    }
+}

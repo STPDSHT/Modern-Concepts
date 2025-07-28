@@ -2,6 +2,7 @@
 // order_management.php
 session_start();
 
+
 if (!isset($_SESSION['admin_logged_in'])) {
     $_SESSION['admin_logged_in'] = true;
 }
@@ -15,9 +16,13 @@ $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 // Fetch employees
 $employees = $pdo->query("SELECT id, name FROM employees")->fetchAll(PDO::FETCH_ASSOC);
+// Fetch clients
+$clients = $pdo->query("SELECT id, name FROM client ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
+
 
 // Handle new order submission
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['client_name'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['client_id'])) {
+
     $imagePath = '';
 
     if (isset($_FILES['design_image']) && $_FILES['design_image']['error'] === UPLOAD_ERR_OK) {
@@ -37,11 +42,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['client_name'])) {
     $size = isset($_POST['size']) ? $_POST['size'] : '';
 
     // Insert order
-    $stmt = $pdo->prepare("INSERT INTO orders (client_name, order_desc, assigned_employee, status, deadline, image_path, quantity, price, total_price, size, created_at)
-                           VALUES (?, ?, ?, 'Pending', ?, ?, ?, ?, ?, ?, NOW())");
+    $stmt = $pdo->prepare("INSERT INTO orders (client_id, order_desc, assigned_employee, status, deadline, image_path, quantity, price, total_price, size, created_at)
+                       VALUES (?, ?, ?, 'Pending', ?, ?, ?, ?, ?, ?, NOW())");
 
     $stmt->execute([
-        $_POST['client_name'],
+        $_POST['client_id'],
         $_POST['order_desc'],
         $_POST['assigned_employee'],
         $_POST['deadline'],
@@ -51,6 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['client_name'])) {
         $total_price,
         $size
     ]);
+
 
     header('Location: order_management.php');
     exit;
@@ -116,11 +122,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_order'])) {
     exit;
 }
 
-// Fetch all orders
+// Fetch all orders with employee and client names
 $orders = $pdo->query("
-    SELECT o.*, e.name AS employee_name 
+    SELECT o.*, 
+           e.name AS employee_name, 
+           c.name AS client_name_display 
     FROM orders o 
     LEFT JOIN employees e ON o.assigned_employee = e.id 
+    LEFT JOIN client c ON o.client_id = c.id 
     ORDER BY o.id DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
@@ -157,10 +166,11 @@ foreach ($orders as $order) {
 
 $latestOrder = count($orders) > 0 ? [
     'id' => 'A' . str_pad($orders[0]['id'], 4, '0', STR_PAD_LEFT),
-    'client' => $orders[0]['client_name'],
+    'client' => $orders[0]['client_name_display'],
     'total_today' => $dailyOrderCount,
     'image' => $orders[0]['image_path']
 ] : null;
+
 ?>
 
 
@@ -261,12 +271,14 @@ $latestOrder = count($orders) > 0 ? [
                 <form method="POST" enctype="multipart/form-data">
                     <div class="form-group">
                         <label for="clientName">Client Name</label>
-                        <input type="text" id="clientName" name="client_name" class="form-control" placeholder="Client Name" required>
+                        <select id="clientName" name="client_id" class="form-control" required>
+                            <option value="">-- Select Client --</option>
+                            <?php foreach ($clients as $client): ?>
+                                <option value="<?= $client['id'] ?>"><?= htmlspecialchars($client['name']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
-                    <div class="form-group">
-                        <label for="orderDesc">Order Description</label>
-                        <textarea id="orderDesc" name="order_desc" class="form-control" placeholder="Order description..." required></textarea>
-                    </div>
+
                     <div class="form-group">
                         <label for="deadline">Deadline</label>
                         <input type="date" id="deadline" name="deadline" class="form-control" required>
@@ -282,6 +294,11 @@ $latestOrder = count($orders) > 0 ? [
                             <?php endforeach; ?>
                         </select>
                     </div>
+                    <div class="form-group">
+                        <label for="orderDesc">Order Description</label>
+                        <textarea id="orderDesc" name="order_desc" class="form-control" placeholder="Enter order details..." required></textarea>
+                    </div>
+
 
                     <div class="form-group">
                         <label for="quantity">Quantity</label>
@@ -312,7 +329,7 @@ $latestOrder = count($orders) > 0 ? [
                         <span id="fileName" class="file-name">No file selected</span>
                     </div>
 
-                    <button type="submit" class="btn btn-block">Add Order</button>
+                    <button type="submit" class="btn btn-primary btn-block">Add Order</button>
                 </form>
             </div>
 
@@ -343,7 +360,7 @@ $latestOrder = count($orders) > 0 ? [
                         </div>
                     <?php endif; ?>
                     <div class="order-stats">
-                        Total Orders Today: <?php echo $latestOrder['total_today']; ?>
+                        Total Orders Today: <?php echo $latestOrder ? $latestOrder['total_today'] : 0; ?>
                     </div>
                 </div>
             </div>
@@ -413,7 +430,7 @@ $latestOrder = count($orders) > 0 ? [
                                     <?php endif; ?>
                                 </td>
                                 <td><?php echo $order['id']; ?></td>
-                                <td><?php echo $order['client_name']; ?></td>
+                                <td><?php echo htmlspecialchars($order['client_name_display'] ?? ''); ?></td>
                                 <td><?php echo htmlspecialchars($order['employee_name']); ?></td>
                                 <td>
                                     <span class="status-badge status-<?php echo strtolower($order['status']); ?>">
