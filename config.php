@@ -5,8 +5,11 @@ define('DB_USER', 'root');
 define('DB_PASS', '');
 define('DB_NAME', 'modern_concept');
 
-// Start session and create database connection
-session_start();
+// Start session only if it's not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 
 try {
     $conn = new PDO(

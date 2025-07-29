@@ -1,7 +1,9 @@
 <?php
-// order_management.php
 session_start();
-
+if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
+    header('Location: login.php');
+    exit;
+}
 
 if (!isset($_SESSION['admin_logged_in'])) {
     $_SESSION['admin_logged_in'] = true;
@@ -67,23 +69,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
     $orderId = $_POST['order_id'];
     $newStatus = $_POST['new_status'];
 
-    // Update the order status
+    // Get previous status before updating
+    $stmt = $pdo->prepare("SELECT status FROM orders WHERE id = ?");
+    $stmt->execute([$orderId]);
+    $prevStatus = $stmt->fetchColumn();
+
+    // Update to new status
     $stmt = $pdo->prepare("UPDATE orders SET status = ? WHERE id = ?");
     $stmt->execute([$newStatus, $orderId]);
 
-    // If status is set to "Done", insert salary record
+    // Undo salary only if changing from Done → Pending
+    if ($prevStatus === 'Done' && $newStatus === 'Pending') {
+        $stmt = $pdo->prepare("DELETE FROM employee_salaries WHERE order_id = ?");
+        $stmt->execute([$orderId]);
+    }
+
+
+    // ✅ Insert salary if changing to Done
     if ($newStatus === 'Done') {
-        // Get order info
         $stmt = $pdo->prepare("SELECT assigned_employee, quantity FROM orders WHERE id = ?");
         $stmt->execute([$orderId]);
         $order = $stmt->fetch(PDO::FETCH_ASSOC);
 
-        // Make sure order and employee are found
         if ($order) {
             $employeeId = $order['assigned_employee'];
             $quantity = $order['quantity'];
 
-            // Get employee salary rate
             $stmt = $pdo->prepare("SELECT salary_rate FROM employees WHERE id = ?");
             $stmt->execute([$employeeId]);
             $employee = $stmt->fetch(PDO::FETCH_ASSOC);
@@ -92,7 +103,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
                 $rate = $employee['salary_rate'];
                 $salary = $rate * $quantity;
 
-                // Insert salary record
                 $stmt = $pdo->prepare("INSERT INTO employee_salaries (order_id, employee_id, salary_amount, quantity, rate)
                                        VALUES (?, ?, ?, ?, ?)");
                 $stmt->execute([$orderId, $employeeId, $salary, $quantity, $rate]);
@@ -103,7 +113,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
     header('Location: order_management.php');
     exit;
 }
-
 
 // Delete order
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_order'])) {
@@ -132,6 +141,16 @@ $orders = $pdo->query("
     LEFT JOIN client c ON o.client_id = c.id 
     ORDER BY o.id DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
+$currentOrders = [];
+$doneOrders = [];
+
+foreach ($orders as $order) {
+    if ($order['status'] === 'Done') {
+        $doneOrders[] = $order;
+    } else {
+        $currentOrders[] = $order;
+    }
+}
 
 
 // Status counts and stats
@@ -167,7 +186,6 @@ foreach ($orders as $order) {
 $latestOrder = count($orders) > 0 ? [
     'id' => 'A' . str_pad($orders[0]['id'], 4, '0', STR_PAD_LEFT),
     'client' => $orders[0]['client_name_display'],
-    'total_today' => $dailyOrderCount,
     'image' => $orders[0]['image_path']
 ] : null;
 
@@ -352,16 +370,14 @@ $latestOrder = count($orders) > 0 ? [
                             <?php endif; ?>
                         </div>
                         <div class="order-id"><?php echo $latestOrder['id']; ?></div>
-                        <div class="client-name"><?php echo $latestOrder['client']; ?></div>
+                        <div class="client-name-label">Client Name</div>
+                        <div class="client-name-value"><?php echo htmlspecialchars($latestOrder['client']); ?></div>
                     <?php else: ?>
                         <div class="no-orders">
                             <i class="fas fa-inbox"></i>
                             <p>No orders yet</p>
                         </div>
                     <?php endif; ?>
-                    <div class="order-stats">
-                        Total Orders Today: <?php echo $latestOrder ? $latestOrder['total_today'] : 0; ?>
-                    </div>
                 </div>
             </div>
         </div>
@@ -401,24 +417,31 @@ $latestOrder = count($orders) > 0 ? [
         </div>
 
         <!-- Orders Table -->
+        <!-- ✅ Current Orders Table (Pending only) -->
         <div class="table-container">
-            <div class="table-header">Order ID</div>
+            <div class="table-header">Current Orders</div>
             <table class="orders-table">
                 <thead>
                     <tr>
                         <th>Image</th>
                         <th>Order ID</th>
                         <th>Client Name</th>
+                        <th>Order Description</th>
                         <th>Assigned Employee</th>
                         <th>Status</th>
                         <th>Deadline</th>
-                        <th>Total Price</th> <!-- NEW COLUMN -->
+                        <th>Total Price</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if (count($orders) > 0): ?>
-                        <?php foreach ($orders as $order): ?>
+                    <?php
+                    $hasPendingOrders = false;
+                    if (count($currentOrders) > 0):
+                        foreach ($currentOrders as $order):
+                            if ($order['status'] !== 'Pending') continue;
+                            $hasPendingOrders = true;
+                    ?>
                             <tr>
                                 <td class="order-image-cell">
                                     <?php if (!empty($order['image_path'])): ?>
@@ -431,6 +454,7 @@ $latestOrder = count($orders) > 0 ? [
                                 </td>
                                 <td><?php echo $order['id']; ?></td>
                                 <td><?php echo htmlspecialchars($order['client_name_display'] ?? ''); ?></td>
+                                <td><?php echo htmlspecialchars($order['order_desc']); ?></td>
                                 <td><?php echo htmlspecialchars($order['employee_name']); ?></td>
                                 <td>
                                     <span class="status-badge status-<?php echo strtolower($order['status']); ?>">
@@ -438,43 +462,29 @@ $latestOrder = count($orders) > 0 ? [
                                     </span>
                                 </td>
                                 <td><?php echo $order['deadline']; ?></td>
-                                <td>₱<?php echo number_format($order['total_price'], 2); ?></td> <!-- NEW VALUE -->
+                                <td>₱<?php echo number_format($order['total_price'], 2); ?></td>
                                 <td>
-                                    <div class="status-actions">
-                                        <form method="POST" class="status-form" onsubmit="return false;">
-                                            <input type="hidden" name="order_id" value="<?php echo $order['id']; ?>">
-                                            <input type="hidden" name="new_status" value="<?php echo $order['status'] === 'Done' ? 'Pending' : 'Done'; ?>">
-                                            <input type="hidden" name="update_status" value="">
-                                            <label>
-                                                <input type="checkbox"
-                                                    onchange="toggleStatus(this)"
-                                                    <?php echo $order['status'] === 'Done' ? 'checked' : ''; ?>>
-                                                Done
-                                            </label>
-                                        </form>
-                                        <div class="status-selector">
-                                            <select class="status-select" data-order-id="<?php echo $order['id']; ?>">
-                                                <option value="Pending" <?php echo $order['status'] === 'Pending' ? 'selected' : ''; ?>>Pending</option>
-                                                <option value="Delivered" <?php echo $order['status'] === 'Delivered' ? 'selected' : ''; ?>>Delivered</option>
-                                            </select>
-                                            <form method="POST" class="delete-form">
-                                                <input type="hidden" name="delete_order" value="1">
-                                                <input type="hidden" name="order_id" value="<?php echo $order['id']; ?>">
-                                                <button type="submit" class="action-btn delete-btn" title="Delete Order">
-                                                    <i class="fas fa-trash"></i>
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </div>
+                                    <form method="POST" class="status-form" onsubmit="return false;">
+                                        <input type="hidden" name="order_id" value="<?php echo $order['id']; ?>">
+                                        <input type="hidden" name="new_status" value="Done">
+                                        <input type="hidden" name="update_status" value="">
+                                        <label>
+                                            <input type="checkbox" onchange="toggleStatus(this)">
+                                            Done
+                                        </label>
+                                    </form>
                                 </td>
                             </tr>
-                        <?php endforeach; ?>
-                    <?php else: ?>
+                        <?php
+                        endforeach;
+                    endif;
+                    if (!$hasPendingOrders):
+                        ?>
                         <tr>
-                            <td colspan="8" class="no-orders-row">
+                            <td colspan="9" class="no-orders-row">
                                 <div class="no-orders-message">
                                     <i class="fas fa-inbox"></i>
-                                    <p>No orders found</p>
+                                    <p>No current orders found</p>
                                 </div>
                             </td>
                         </tr>
@@ -482,7 +492,154 @@ $latestOrder = count($orders) > 0 ? [
                 </tbody>
             </table>
         </div>
+
+
+        <!-- ✅ Done Orders Table -->
+        <div class="table-container" style="margin-top: 30px;">
+            <div class="table-header">Completed Orders (Done)</div>
+            <table class="orders-table">
+                <thead>
+                    <tr>
+                        <th>Image</th>
+                        <th>Order ID</th>
+                        <th>Client Name</th>
+                        <th>Order Description</th>
+                        <th>Assigned Employee</th>
+                        <th>Status</th>
+                        <th>Deadline</th>
+                        <th>Total Price</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                    $hasDone = false;
+                    foreach ($orders as $order):
+                        if ($order['status'] === 'Done'):
+                            $hasDone = true;
+                    ?>
+                            <tr>
+                                <td class="order-image-cell">
+                                    <?php if (!empty($order['image_path'])): ?>
+                                        <img src="<?= $order['image_path']; ?>" alt="Design" class="order-image">
+                                    <?php else: ?>
+                                        <div class="image-placeholder"><i class="fas fa-image"></i></div>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?= $order['id']; ?></td>
+                                <td><?= htmlspecialchars($order['client_name_display']); ?></td>
+                                <td><?= htmlspecialchars($order['order_desc']); ?></td>
+                                <td><?= htmlspecialchars($order['employee_name']); ?></td>
+                                <td><span class="status-badge status-done">Done</span></td>
+                                <td><?= $order['deadline']; ?></td>
+                                <td>₱<?= number_format($order['total_price'], 2); ?></td>
+                                <td class="status-actions">
+                                    <!-- Undo (Back to Pending) -->
+                                    <form method="POST" style="display:inline;">
+                                        <input type="hidden" name="order_id" value="<?= $order['id']; ?>">
+                                        <input type="hidden" name="new_status" value="Pending">
+                                        <input type="hidden" name="update_status" value="1">
+                                        <button type="submit" class="btn btn-sm btn-warning" title="Undo to Pending">Undo</button>
+                                    </form>
+
+                                    <!-- Mark as Delivered -->
+                                    <form method="POST" style="display:inline; margin-left: 5px;">
+                                        <input type="hidden" name="order_id" value="<?= $order['id']; ?>">
+                                        <input type="hidden" name="new_status" value="Delivered">
+                                        <input type="hidden" name="update_status" value="1">
+                                        <button type="submit" class="btn btn-sm btn-success" title="Mark as Delivered">Delivered</button>
+                                    </form>
+                                </td>
+                            </tr>
+                    <?php endif;
+                    endforeach; ?>
+
+                    <?php if (!$hasDone): ?>
+                        <tr>
+                            <td colspan="9" class="no-orders-row">
+                                <div class="no-orders-message">
+                                    <i class="fas fa-check-circle"></i>
+                                    <p>No done orders found</p>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+
+
+        <!-- ✅ Delivered Orders Table -->
+        <div class="table-container" style="margin-top: 30px;">
+            <div class="table-header">Delivered Orders</div>
+            <table class="orders-table">
+                <thead>
+                    <tr>
+                        <th>Image</th>
+                        <th>Order ID</th>
+                        <th>Client Name</th>
+                        <th>Order Description</th>
+                        <th>Assigned Employee</th>
+                        <th>Status</th>
+                        <th>Deadline</th>
+                        <th>Total Price</th>
+                        <th>Actions</th> <!-- ✅ Actions column added -->
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                    $hasDelivered = false;
+                    foreach ($orders as $order):
+                        if ($order['status'] === 'Delivered'):
+                            $hasDelivered = true;
+                    ?>
+                            <tr>
+                                <td class="order-image-cell">
+                                    <?php if (!empty($order['image_path'])): ?>
+                                        <img src="<?= $order['image_path']; ?>" alt="Design" class="order-image">
+                                    <?php else: ?>
+                                        <div class="image-placeholder"><i class="fas fa-image"></i></div>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?= $order['id']; ?></td>
+                                <td><?= htmlspecialchars($order['client_name_display']); ?></td>
+                                <td><?= htmlspecialchars($order['order_desc']); ?></td>
+                                <td><?= htmlspecialchars($order['employee_name']); ?></td>
+                                <td><span class="status-badge status-delivered">Delivered</span></td>
+                                <td><?= $order['deadline']; ?></td>
+                                <td>₱<?= number_format($order['total_price'], 2); ?></td>
+                                <td>
+                                    <form method="POST" class="delete-form" onsubmit="return confirm('Are you sure you want to delete this delivered order?');">
+                                        <input type="hidden" name="delete_order" value="1">
+                                        <input type="hidden" name="order_id" value="<?= $order['id']; ?>">
+                                        <button type="submit" class="action-btn delete-btn" title="Delete Order">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                    <?php endif;
+                    endforeach; ?>
+
+                    <?php if (!$hasDelivered): ?>
+                        <tr>
+                            <td colspan="9" class="no-orders-row">
+                                <div class="no-orders-message">
+                                    <i class="fas fa-inbox"></i>
+                                    <p>No delivered orders found</p>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+
         <script>
+            function toggleDoneTable() {
+                const table = document.getElementById('doneOrdersTable');
+                table.style.display = (table.style.display === 'none') ? 'table' : 'none';
+            }
             // Delete confirmation
             document.querySelectorAll('.delete-form').forEach(form => {
                 form.addEventListener('submit', function(e) {

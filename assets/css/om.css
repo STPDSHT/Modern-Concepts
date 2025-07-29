@@ -420,6 +420,14 @@ body {
     color: var(--success);
 }
 
+        .order-details {
+            background: var(--card-bg);
+            border-radius: var(--border-radius-lg);
+            box-shadow: var(--shadow);
+            padding: 25px;
+            border: 1px solid var(--primary); /* Dark Brown */
+        }
+
         .action-btn {
             display: inline-flex;
             align-items: center;
@@ -528,3 +536,16 @@ body {
         .mobile-menu-btn {
             display: none;
         }
+
+     /* Client Name */
+       
+    .client-name-label {
+        font-weight: bold;
+        margin-top: 10px;
+        font-size: medium;
+    }
+    .client-name-value {
+        margin-bottom: 15px;
+        font-size: 20px;
+    }
+

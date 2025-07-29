@@ -1,4 +1,10 @@
 <?php
+session_start();
+if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
+    header('Location: login.php');
+    exit;
+}
+
 $pdo = new PDO("mysql:host=localhost;dbname=modern_concept", "root", "");
 
 // Add employee
