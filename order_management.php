@@ -1,13 +1,12 @@
 <?php
 session_start();
+
 if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
-    header('Location: login.php');
-    exit;
+    header("Location: login.php");
+    exit();
 }
 
-if (!isset($_SESSION['admin_logged_in'])) {
-    $_SESSION['admin_logged_in'] = true;
-}
+include 'config.php'; // ✅ This line ensures $conn is available
 
 if (!file_exists('img')) {
     mkdir('img', 0777, true);
@@ -24,45 +23,64 @@ $clients = $pdo->query("SELECT id, name FROM client ORDER BY name ASC")->fetchAl
 
 // Handle new order submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['client_id'])) {
+    require_once 'config.php';
 
-    $imagePath = '';
+    $client_id = $_POST['client_id'];
+    $deadline = $_POST['deadline'];
+    $assigned_employee = $_POST['assigned_employee'];
+    $order_desc = $_POST['order_desc'];
+    $quantity = (int)$_POST['quantity'];
+    $size = $_POST['size'];
+    $price = (float)$_POST['price'];
+    $total_price = $quantity * $price;
+    $image_path = '';
 
+    // Upload image
     if (isset($_FILES['design_image']) && $_FILES['design_image']['error'] === UPLOAD_ERR_OK) {
         $uploadDir = 'img/';
         $filename = uniqid() . '_' . basename($_FILES['design_image']['name']);
         $targetPath = $uploadDir . $filename;
 
         if (move_uploaded_file($_FILES['design_image']['tmp_name'], $targetPath)) {
-            $imagePath = $targetPath;
+            $image_path = $targetPath;
         }
     }
 
-    // Get and calculate values
-    $quantity = isset($_POST['quantity']) ? (int) $_POST['quantity'] : 0;
-    $price = isset($_POST['price']) ? (float) $_POST['price'] : 0.0;
-    $total_price = $quantity * $price;
-    $size = isset($_POST['size']) ? $_POST['size'] : '';
+    // Check available stock
+    $stockCheck = $conn->prepare("SELECT quantity FROM tshirt_inventory WHERE size = ?");
+    $stockCheck->execute([$size]);
+    $availableStock = $stockCheck->fetchColumn();
 
-    // Insert order
-    $stmt = $pdo->prepare("INSERT INTO orders (client_id, order_desc, assigned_employee, status, deadline, image_path, quantity, price, total_price, size, created_at)
-                       VALUES (?, ?, ?, 'Pending', ?, ?, ?, ?, ?, ?, NOW())");
+    if ($availableStock === false) {
+        echo "<script>alert('Selected size does not exist in inventory.');</script>";
+    } elseif ($quantity > $availableStock) {
+        echo "<script>alert('Not enough stock for size $size. Available: $availableStock');</script>";
+    } else {
+        // Insert into orders
+        $stmt = $conn->prepare("INSERT INTO orders (client_id, order_desc, assigned_employee, status, deadline, image_path, quantity, price, total_price, size, created_at)
+                                VALUES (?, ?, ?, 'Pending', ?, ?, ?, ?, ?, ?, NOW())");
 
-    $stmt->execute([
-        $_POST['client_id'],
-        $_POST['order_desc'],
-        $_POST['assigned_employee'],
-        $_POST['deadline'],
-        $imagePath,
-        $quantity,
-        $price,
-        $total_price,
-        $size
-    ]);
+        $stmt->execute([
+            $client_id,
+            $order_desc,
+            $assigned_employee,
+            $deadline,
+            $image_path,
+            $quantity,
+            $price,
+            $total_price,
+            $size
+        ]);
 
+        // Deduct from inventory
+        $deductStock = $conn->prepare("UPDATE tshirt_inventory SET quantity = quantity - ? WHERE size = ?");
+        $deductStock->execute([$quantity, $size]);
 
-    header('Location: order_management.php');
-    exit;
+        header("Location: order_management.php");
+        exit;
+    }
 }
+
 
 // Update status
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
@@ -111,6 +129,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
     }
 
     header('Location: order_management.php');
+    exit;
+}
+
+// Delete and restock inventory
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_order_restock'])) {
+    $orderId = $_POST['delete_order_restock'];
+
+    // Get order details (size, quantity, image)
+    $stmt = $conn->prepare("SELECT size, quantity, image_path FROM orders WHERE id = ?");
+    $stmt->execute([$orderId]);
+    $order = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($order) {
+        $size = $order['size'];
+        $quantity = $order['quantity'];
+
+        // Restore stock
+        $updateStock = $conn->prepare("UPDATE tshirt_inventory SET quantity = quantity + ? WHERE size = ?");
+        $updateStock->execute([$quantity, $size]);
+
+        // Delete image if exists
+        if (!empty($order['image_path']) && file_exists($order['image_path'])) {
+            unlink($order['image_path']);
+        }
+
+        // Delete order
+        $delete = $conn->prepare("DELETE FROM orders WHERE id = ?");
+        $delete->execute([$orderId]);
+    }
+
+    header("Location: order_management.php");
     exit;
 }
 
@@ -183,6 +232,14 @@ foreach ($orders as $order) {
     }
 }
 
+// Fetch available t-shirt sizes (with stock > 0)
+$availableSizes = [];
+$stmt = $conn->query("SELECT DISTINCT size FROM tshirt_inventory WHERE quantity > 0 ORDER BY size");
+while ($row = $stmt->fetch()) {
+    $availableSizes[] = $row['size'];
+}
+
+
 $latestOrder = count($orders) > 0 ? [
     'id' => 'A' . str_pad($orders[0]['id'], 4, '0', STR_PAD_LEFT),
     'client' => $orders[0]['client_name_display'],
@@ -223,9 +280,9 @@ $latestOrder = count($orders) > 0 ? [
                 </a>
             </li>
             <li>
-                <a href="order_management.php" class="active">
-                    <i class="fas fa-gear"></i>
-                    <span class="link-text">Order Management</span>
+                <a href="clients.php">
+                    <i class="fas fa-user-tie"></i>
+                    <span class="link-text">Clients</span>
                 </a>
             </li>
             <li>
@@ -235,9 +292,21 @@ $latestOrder = count($orders) > 0 ? [
                 </a>
             </li>
             <li>
+                <a href="order_management.php">
+                    <i class="fas fa-gear"></i>
+                    <span class="link-text">Order Management</span>
+                </a>
+            </li>
+            <li>
                 <a href="inventory.php">
                     <i class="fas fa-boxes"></i>
                     <span class="link-text">Inventory</span>
+                </a>
+            </li>
+            <li>
+                <a href="expenses.php">
+                    <i class="fas fa-money-bill-wave"></i>
+                    <span class="link-text">Expenses</span>
                 </a>
             </li>
             <li>
@@ -252,19 +321,8 @@ $latestOrder = count($orders) > 0 ? [
                     <span class="link-text">Reports</span>
                 </a>
             </li>
-            <li>
-                <a href="clients.php">
-                    <i class="fas fa-user-tie"></i>
-                    <span class="link-text">Clients</span>
-                </a>
-            </li>
-            <li>
-                <a href="authentication.php">
-                    <i class="fas fa-lock"></i>
-                    <span class="link-text">Authentication</span>
-                </a>
-            </li>
         </ul>
+
     </div>
 
     <!-- Main Content -->
@@ -301,39 +359,43 @@ $latestOrder = count($orders) > 0 ? [
                         <label for="deadline">Deadline</label>
                         <input type="date" id="deadline" name="deadline" class="form-control" required>
                     </div>
+
                     <div class="form-group">
                         <label for="assignedEmployee">Assign Employee</label>
                         <select id="assignedEmployee" name="assigned_employee" class="form-control" required>
                             <?php foreach ($employees as $employee): ?>
-                                <option value="<?php echo htmlspecialchars($employee['id']); ?>">
-
-                                    <?php echo htmlspecialchars($employee['name']); ?>
-                                </option>
+                                <option value="<?= htmlspecialchars($employee['id']); ?>"><?= htmlspecialchars($employee['name']); ?></option>
                             <?php endforeach; ?>
                         </select>
                     </div>
+
                     <div class="form-group">
                         <label for="orderDesc">Order Description</label>
                         <textarea id="orderDesc" name="order_desc" class="form-control" placeholder="Enter order details..." required></textarea>
                     </div>
 
+                    <div class="form-group">
+                        <label for="size">Size</label>
+                        <select id="size" name="size" class="form-control" required>
+                            <option value="">Select size</option>
+                            <?php
+                            $stmt = $conn->query("SELECT size, SUM(quantity) as stock FROM tshirt_inventory WHERE quantity > 0 GROUP BY size ORDER BY size");
+                            $stockMap = [];
+                            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                                $size = $row['size'];
+                                $stock = $row['stock'];
+                                $stockMap[$size] = $stock;
+                                echo "<option value=\"$size\">$size (Stock: $stock)</option>";
+                            }
+                            ?>
+                        </select>
+                    </div>
 
                     <div class="form-group">
                         <label for="quantity">Quantity</label>
                         <input type="number" id="quantity" name="quantity" class="form-control" placeholder="Enter quantity" required min="1">
                     </div>
-                    <div class="form-group">
-                        <label for="size">Size</label>
-                        <select id="size" name="size" class="form-control" required>
-                            <option value="">Select size</option>
-                            <option value="S">S</option>
-                            <option value="M">M</option>
-                            <option value="L">L</option>
-                            <option value="XL">XL</option>
-                            <option value="XXL">XXL</option>
-                            <option value="XXXL">XXXL</option>
-                        </select>
-                    </div>
+
                     <div class="form-group">
                         <label for="price">Price (per item)</label>
                         <input type="number" step="0.01" id="price" name="price" class="form-control" placeholder="Enter price per item" required min="0">
@@ -350,7 +412,6 @@ $latestOrder = count($orders) > 0 ? [
                     <button type="submit" class="btn btn-primary btn-block">Add Order</button>
                 </form>
             </div>
-
 
             <!-- Latest Order -->
             <div class="card">
@@ -381,6 +442,7 @@ $latestOrder = count($orders) > 0 ? [
                 </div>
             </div>
         </div>
+
 
         <!-- Status Cards -->
         <div class="status-cards">
@@ -430,10 +492,12 @@ $latestOrder = count($orders) > 0 ? [
                         <th>Assigned Employee</th>
                         <th>Status</th>
                         <th>Deadline</th>
+                        <th>Size</th>
                         <th>Total Price</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
+
                 <tbody>
                     <?php
                     $hasPendingOrders = false;
@@ -462,6 +526,7 @@ $latestOrder = count($orders) > 0 ? [
                                     </span>
                                 </td>
                                 <td><?php echo $order['deadline']; ?></td>
+                                <td><?php echo htmlspecialchars($order['size']); ?></td>
                                 <td>₱<?php echo number_format($order['total_price'], 2); ?></td>
                                 <td>
                                     <form method="POST" class="status-form" onsubmit="return false;">
@@ -473,6 +538,13 @@ $latestOrder = count($orders) > 0 ? [
                                             Done
                                         </label>
                                     </form>
+                                    <form method="POST" onsubmit="return confirm('Are you sure you want to delete this order and restore inventory?');" style="display:inline;">
+                                        <input type="hidden" name="delete_order_restock" value="<?= $order['id'] ?>">
+                                        <button type="submit" class="btn btn-sm btn-danger" title="Delete & Restock">
+                                            <i class="fas fa-trash-alt"></i>
+                                        </button>
+                                    </form>
+
                                 </td>
                             </tr>
                         <?php
@@ -481,7 +553,7 @@ $latestOrder = count($orders) > 0 ? [
                     if (!$hasPendingOrders):
                         ?>
                         <tr>
-                            <td colspan="9" class="no-orders-row">
+                            <td colspan="10" class="no-orders-row">
                                 <div class="no-orders-message">
                                     <i class="fas fa-inbox"></i>
                                     <p>No current orders found</p>
@@ -507,6 +579,7 @@ $latestOrder = count($orders) > 0 ? [
                         <th>Assigned Employee</th>
                         <th>Status</th>
                         <th>Deadline</th>
+                        <th>Size</th>
                         <th>Total Price</th>
                         <th>Actions</th>
                     </tr>
@@ -532,6 +605,7 @@ $latestOrder = count($orders) > 0 ? [
                                 <td><?= htmlspecialchars($order['employee_name']); ?></td>
                                 <td><span class="status-badge status-done">Done</span></td>
                                 <td><?= $order['deadline']; ?></td>
+                                <td><?php echo htmlspecialchars($order['size']); ?></td>
                                 <td>₱<?= number_format($order['total_price'], 2); ?></td>
                                 <td class="status-actions">
                                     <!-- Undo (Back to Pending) -->
@@ -556,7 +630,7 @@ $latestOrder = count($orders) > 0 ? [
 
                     <?php if (!$hasDone): ?>
                         <tr>
-                            <td colspan="9" class="no-orders-row">
+                            <td colspan="10" class="no-orders-row">
                                 <div class="no-orders-message">
                                     <i class="fas fa-check-circle"></i>
                                     <p>No done orders found</p>
@@ -582,6 +656,7 @@ $latestOrder = count($orders) > 0 ? [
                         <th>Assigned Employee</th>
                         <th>Status</th>
                         <th>Deadline</th>
+                        <th>Size</th>
                         <th>Total Price</th>
                         <th>Actions</th> <!-- ✅ Actions column added -->
                     </tr>
@@ -607,6 +682,7 @@ $latestOrder = count($orders) > 0 ? [
                                 <td><?= htmlspecialchars($order['employee_name']); ?></td>
                                 <td><span class="status-badge status-delivered">Delivered</span></td>
                                 <td><?= $order['deadline']; ?></td>
+                                <td><?php echo htmlspecialchars($order['size']); ?></td>
                                 <td>₱<?= number_format($order['total_price'], 2); ?></td>
                                 <td>
                                     <form method="POST" class="delete-form" onsubmit="return confirm('Are you sure you want to delete this delivered order?');">
@@ -623,7 +699,7 @@ $latestOrder = count($orders) > 0 ? [
 
                     <?php if (!$hasDelivered): ?>
                         <tr>
-                            <td colspan="9" class="no-orders-row">
+                            <td colspan="10" class="no-orders-row">
                                 <div class="no-orders-message">
                                     <i class="fas fa-inbox"></i>
                                     <p>No delivered orders found</p>
@@ -636,6 +712,53 @@ $latestOrder = count($orders) > 0 ? [
         </div>
 
         <script>
+            const submitBtn = document.querySelector('button[type="submit"]');
+
+            function validateQuantity() {
+                const size = sizeSelect.value;
+                const maxQty = sizeStockMap[size] || 0;
+                const currentQty = parseInt(qtyInput.value) || 0;
+
+                if (currentQty > maxQty || currentQty < 1) {
+                    submitBtn.disabled = true;
+                } else {
+                    submitBtn.disabled = false;
+                }
+            }
+
+            qtyInput.addEventListener('input', validateQuantity);
+            sizeSelect.addEventListener('change', validateQuantity);
+            const sizeStockMap = <?= json_encode($stockMap); ?>;
+
+            const sizeSelect = document.getElementById('size');
+            const qtyInput = document.getElementById('quantity');
+
+            sizeSelect.addEventListener('change', function() {
+                const selectedSize = this.value;
+                const maxQty = sizeStockMap[selectedSize] || 0;
+                qtyInput.max = maxQty;
+                qtyInput.placeholder = "Max: " + maxQty;
+
+                // Reset value if it’s higher than new max
+                if (parseInt(qtyInput.value) > maxQty) {
+                    qtyInput.value = maxQty;
+                }
+            });
+
+            qtyInput.addEventListener('input', function() {
+                const selectedSize = sizeSelect.value;
+                const maxQty = sizeStockMap[selectedSize] || 0;
+
+                if (parseInt(this.value) > maxQty) {
+                    this.value = maxQty;
+                }
+            });
+
+            document.getElementById('designImage').addEventListener('change', function() {
+                const fileName = this.files[0]?.name || "No file selected";
+                document.getElementById('fileName').textContent = fileName;
+            });
+
             function toggleDoneTable() {
                 const table = document.getElementById('doneOrdersTable');
                 table.style.display = (table.style.display === 'none') ? 'table' : 'none';

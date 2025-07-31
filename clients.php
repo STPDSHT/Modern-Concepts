@@ -79,15 +79,56 @@ function highlight($text, $term)
             <h1>MODERN CONCEPTS</h1>
         </div>
         <ul class="nav-links">
-            <li><a href="dashboard.php"><i class="fas fa-home"></i><span class="link-text">Dashboard</span></a></li>
-            <li><a href="order_management.php"><i class="fas fa-gear"></i><span class="link-text">Order Management</span></a></li>
-            <li><a href="employees.php"><i class="fas fa-users"></i><span class="link-text">Employees</span></a></li>
-            <li><a href="inventory.php"><i class="fas fa-boxes"></i><span class="link-text">Inventory</span></a></li>
-            <li><a href="s&i.php"><i class="fas fa-chart-line"></i><span class="link-text">Sales & Income</span></a></li>
-            <li><a href="reports.php"><i class="fas fa-file-alt"></i><span class="link-text">Reports</span></a></li>
-            <li><a href="clients.php" class="active"><i class="fas fa-user-tie"></i><span class="link-text">Clients</span></a></li>
-            <li><a href="authentication.php"><i class="fas fa-lock"></i><span class="link-text">Authentication</span></a></li>
+            <li>
+                <a href="dashboard.php">
+                    <i class="fas fa-home"></i>
+                    <span class="link-text">Dashboard</span>
+                </a>
+            </li>
+            <li>
+                <a href="clients.php">
+                    <i class="fas fa-user-tie"></i>
+                    <span class="link-text">Clients</span>
+                </a>
+            </li>
+            <li>
+                <a href="employees.php">
+                    <i class="fas fa-users"></i>
+                    <span class="link-text">Employees</span>
+                </a>
+            </li>
+            <li>
+                <a href="order_management.php">
+                    <i class="fas fa-gear"></i>
+                    <span class="link-text">Order Management</span>
+                </a>
+            </li>
+            <li>
+                <a href="inventory.php">
+                    <i class="fas fa-boxes"></i>
+                    <span class="link-text">Inventory</span>
+                </a>
+            </li>
+            <li>
+                <a href="expenses.php">
+                    <i class="fas fa-money-bill-wave"></i>
+                    <span class="link-text">Expenses</span>
+                </a>
+            </li>
+            <li>
+                <a href="s&i.php">
+                    <i class="fas fa-chart-line"></i>
+                    <span class="link-text">Sales & Income</span>
+                </a>
+            </li>
+            <li>
+                <a href="reports.php">
+                    <i class="fas fa-file-alt"></i>
+                    <span class="link-text">Reports</span>
+                </a>
+            </li>
         </ul>
+
     </div>
 
     <div class="main-content" style="margin-left: 260px; padding: 20px;">

@@ -54,9 +54,9 @@ $dashboard_data = [
                 </a>
             </li>
             <li>
-                <a href="order_management.php">
-                    <i class="fas fa-gear"></i>
-                    <span class="link-text">Order Management</span>
+                <a href="clients.php">
+                    <i class="fas fa-user-tie"></i>
+                    <span class="link-text">Clients</span>
                 </a>
             </li>
             <li>
@@ -66,9 +66,21 @@ $dashboard_data = [
                 </a>
             </li>
             <li>
+                <a href="order_management.php">
+                    <i class="fas fa-gear"></i>
+                    <span class="link-text">Order Management</span>
+                </a>
+            </li>
+            <li>
                 <a href="inventory.php">
                     <i class="fas fa-boxes"></i>
                     <span class="link-text">Inventory</span>
+                </a>
+            </li>
+            <li>
+                <a href="expenses.php">
+                    <i class="fas fa-money-bill-wave"></i>
+                    <span class="link-text">Expenses</span>
                 </a>
             </li>
             <li>
@@ -83,19 +95,8 @@ $dashboard_data = [
                     <span class="link-text">Reports</span>
                 </a>
             </li>
-            <li>
-                <a href="clients.php">
-                    <i class="fas fa-user-tie"></i>
-                    <span class="link-text">Clients</span>
-                </a>
-            </li>
-            <li>
-                <a href="authentication.php">
-                    <i class="fas fa-lock"></i>
-                    <span class="link-text">Authentication</span>
-                </a>
-            </li>
         </ul>
+
     </div>
 
     <!-- Main Content -->

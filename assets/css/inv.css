@@ -239,3 +239,18 @@ body {
         flex-direction: column;
     }
 }
+.inventory-table th,
+.inventory-table td {
+    padding: 10px 15px;
+    vertical-align: middle;
+    text-align: left;
+    white-space: nowrap;
+}
+.inventory-table .edit-row {
+    background-color: var(--table-color);
+}
+
+.inventory-table .edit-row td {
+    padding: 15px;
+    border: none;
+}

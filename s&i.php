@@ -8,6 +8,7 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
 <!DOCTYPE html>
 
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -16,6 +17,7 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
     <link rel="stylesheet" href="assets/css/sales_income.css">
 </head>
+
 <body>
     <div class="sidebar">
         <div class="sidebar-header">
@@ -29,9 +31,9 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
                 </a>
             </li>
             <li>
-                <a href="order_management.php">
-                    <i class="fas fa-gear"></i>
-                    <span class="link-text">Order Management</span>
+                <a href="clients.php">
+                    <i class="fas fa-user-tie"></i>
+                    <span class="link-text">Clients</span>
                 </a>
             </li>
             <li>
@@ -41,9 +43,21 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
                 </a>
             </li>
             <li>
+                <a href="order_management.php">
+                    <i class="fas fa-gear"></i>
+                    <span class="link-text">Order Management</span>
+                </a>
+            </li>
+            <li>
                 <a href="inventory.php">
                     <i class="fas fa-boxes"></i>
                     <span class="link-text">Inventory</span>
+                </a>
+            </li>
+            <li>
+                <a href="expenses.php">
+                    <i class="fas fa-money-bill-wave"></i>
+                    <span class="link-text">Expenses</span>
                 </a>
             </li>
             <li>
@@ -58,19 +72,9 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
                     <span class="link-text">Reports</span>
                 </a>
             </li>
-            <li>
-                <a href="clients.php">
-                    <i class="fas fa-user-tie"></i>
-                    <span class="link-text">Clients</span>
-                </a>
-            </li>
-            <li>
-                <a href="authentication.php">
-                    <i class="fas fa-lock"></i>
-                    <span class="link-text">Authentication</span>
-                </a>
-            </li>
         </ul>
+
     </div>
 </body>
+
 </html>
