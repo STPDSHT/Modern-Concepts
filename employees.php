@@ -251,6 +251,7 @@ $salarySums = $pdo->query("SELECT employee_id, SUM(salary_amount) AS total_salar
                         </div>
                     </div>
                 </div>
+
                 <!-- Transaction History -->
                 <div class="transaction-history mt-5">
                     <h3 class="section-title">Salary Payment History</h3>
@@ -298,6 +299,14 @@ $salarySums = $pdo->query("SELECT employee_id, SUM(salary_amount) AS total_salar
                                 <?php endif; ?>
                             </tbody>
                         </table>
+                    </div>
+                    <div class="d-flex justify-content-end mb-2">
+                        <a href="export_employees_excel.php" class="btn btn-success me-2">
+                            <i class="fas fa-file-excel"></i> Export to Excel
+                        </a>
+                        <a href="export_employees_pdf.php" class="btn btn-danger">
+                            <i class="fas fa-file-pdf"></i> Export to PDF
+                        </a>
                     </div>
                 </div>
             </div>

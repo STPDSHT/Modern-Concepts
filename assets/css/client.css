@@ -103,6 +103,46 @@ body {
     background-color: var(--main-bg);
     min-height: 100vh;
 }
+/* Matcha-style Add Client button */
+.btn-add-client {
+    background-color: #88b04b; /* matcha green */
+    border-color: #88b04b;
+    color: #fff;
+    transition: var(--transition);
+}
+
+.btn-add-client:hover {
+    background-color: #72943e;
+    border-color: #72943e;
+    color: #fff;
+}
+
+/* Excel export button (blue) */
+.btn-export-excel {
+    background-color: #3b82f6; /* blue tone */
+    border-color: #3b82f6;
+    color: #fff;
+    transition: var(--transition);
+}
+
+.btn-export-excel:hover {
+    background-color: #2563eb;
+    border-color: #2563eb;
+}
+
+/* PDF export button (red) */
+.btn-export-pdf {
+    background-color: #ef4444;
+    border-color: #ef4444;
+    color: #fff;
+    transition: var(--transition);
+}
+
+.btn-export-pdf:hover {
+    background-color: #dc2626;
+    border-color: #dc2626;
+}
+
 @media (max-width: 768px) {
     .sidebar {
         position: relative;

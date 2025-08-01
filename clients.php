@@ -153,7 +153,7 @@ function highlight($text, $term)
                             <label class="form-label">Contact</label>
                             <input type="text" name="contact" class="form-control" required>
                         </div>
-                        <button type="submit" class="btn btn-primary">Add Client</button>
+                        <button type="submit" class="btn btn-add-client">Add Client</button>
                     </form>
                 </div>
             </div>
@@ -194,17 +194,52 @@ function highlight($text, $term)
                                 <tbody>
                                     <?php foreach ($clients as $client): ?>
                                         <tr>
-                                            <form method="POST">
-                                                <input type="hidden" name="client_id" value="<?= $client['id'] ?>">
-                                                <td><input type="text" name="name" value="<?= htmlspecialchars($client['name']) ?>" class="form-control"></td>
-                                                <td><input type="text" name="company_name" value="<?= htmlspecialchars($client['company_name']) ?>" class="form-control"></td>
-                                                <td><input type="text" name="contact" value="<?= htmlspecialchars($client['contact']) ?>" class="form-control"></td>
-                                                <td>
-                                                    <button name="update_client" class="btn btn-sm btn-warning">Update</button>
+                                            <td><?= htmlspecialchars($client['name']) ?></td>
+                                            <td><?= htmlspecialchars($client['company_name']) ?></td>
+                                            <td><?= htmlspecialchars($client['contact']) ?></td>
+                                            <td>
+                                                <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editModal<?= $client['id'] ?>">
+                                                    Edit
+                                                </button>
+                                                <form method="POST" class="d-inline">
+                                                    <input type="hidden" name="client_id" value="<?= $client['id'] ?>">
                                                     <button name="delete_client" class="btn btn-sm btn-danger" onclick="return confirm('Delete this client?')">Delete</button>
-                                                </td>
-                                            </form>
+                                                </form>
+                                            </td>
                                         </tr>
+
+                                        <!-- Edit Modal -->
+                                        <div class="modal fade" id="editModal<?= $client['id'] ?>" tabindex="-1" aria-labelledby="editModalLabel<?= $client['id'] ?>" aria-hidden="true">
+                                            <div class="modal-dialog modal-dialog-centered">
+                                                <div class="modal-content">
+                                                    <form method="POST">
+                                                        <input type="hidden" name="client_id" value="<?= $client['id'] ?>">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title" id="editModalLabel<?= $client['id'] ?>">Edit Client</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+                                                        <div class="modal-body">
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Client Name</label>
+                                                                <input type="text" name="name" class="form-control" value="<?= htmlspecialchars($client['name']) ?>" required>
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Company Name</label>
+                                                                <input type="text" name="company_name" class="form-control" value="<?= htmlspecialchars($client['company_name']) ?>">
+                                                            </div>
+                                                            <div class="mb-3">
+                                                                <label class="form-label">Contact</label>
+                                                                <input type="text" name="contact" class="form-control" value="<?= htmlspecialchars($client['contact']) ?>" required>
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="submit" name="update_client" class="btn btn-primary">Save Changes</button>
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
                                     <?php endforeach; ?>
                                 </tbody>
                             </table>
@@ -227,6 +262,7 @@ function highlight($text, $term)
             </div>
         </div>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 
 </html>

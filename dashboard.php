@@ -6,6 +6,31 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
 }
 
 require_once 'config.php';
+// Total Expenses
+$total_expenses_stmt = $conn->query("SELECT SUM(cost) FROM expenses");
+$total_expenses = $total_expenses_stmt->fetchColumn() ?? 0;
+
+// Pending Orders
+$pending_orders_stmt = $conn->query("SELECT COUNT(*) FROM orders WHERE status = 'Pending'");
+$pending_orders = $pending_orders_stmt->fetchColumn();
+// Calculate total sales from Delivered orders
+$total_sales_stmt = $conn->query("SELECT SUM(total_price) AS total_sales FROM orders WHERE status = 'Delivered'");
+$total_sales = $total_sales_stmt->fetch(PDO::FETCH_ASSOC)['total_sales'] ?? 0;
+
+// Calculate total expenses from expenses table
+$total_expense_stmt = $conn->query("SELECT SUM(cost) AS total_expenses FROM expenses");
+$total_expenses = $total_expense_stmt->fetch(PDO::FETCH_ASSOC)['total_expenses'] ?? 0;
+
+// Safe: set dashboard_data as array
+$dashboard_data = [
+    'total_sales' => $total_sales,
+    'total_expenses' => $total_expenses,
+    'net_profit' => $total_sales - $total_expenses,
+];
+
+$net_profit = $dashboard_data['total_sales'] - $total_expenses;
+
+
 
 // Authentication check
 if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
@@ -17,16 +42,51 @@ if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== tru
 $admin_name = $_SESSION['admin_name'] ?? 'Administrator';
 $admin_role = $_SESSION['admin_role'] ?? 'Admin';
 
-// Dashboard data (simulated)
+// Fetch total sales from delivered orders
+$sales_stmt = $conn->query("SELECT SUM(total_price) as total_sales FROM orders WHERE status = 'Delivered'");
+$total_sales = $sales_stmt->fetch(PDO::FETCH_ASSOC)['total_sales'] ?? 0;
+
+// Fetch total expenses
+$expenses_stmt = $conn->query("SELECT SUM(cost) as total_expenses FROM expenses");
+$total_expenses = $expenses_stmt->fetch(PDO::FETCH_ASSOC)['total_expenses'] ?? 0;
+
+// Predicted income = sales - expenses
+$predicted_income = $total_sales - $total_expenses;
+
+// Count active employees
+$employees_stmt = $conn->query("SELECT COUNT(*) FROM employees WHERE status = 'Active'");
+$active_employees = $employees_stmt->fetchColumn();
+
+// Count active orders
+$orders_stmt = $conn->query("SELECT COUNT(*) FROM orders WHERE status = 'Pending'");
+$active_orders = $orders_stmt->fetchColumn();
+
+// Count out for delivery
+$out_stmt = $conn->query("SELECT COUNT(*) FROM orders WHERE status = 'Out for Delivery'");
+$out_for_delivery = $out_stmt->fetchColumn();
+
+// Count unpaid tasks (Done but not marked as Paid)
+$unpaid_stmt = $conn->query("
+    SELECT COUNT(DISTINCT o.id) 
+    FROM orders o
+    LEFT JOIN employee_salaries es ON o.id = es.order_id
+    WHERE o.status = 'Done' AND es.id IS NULL
+");
+$unpaid_tasks = $unpaid_stmt->fetchColumn();
+
+// Monthly projection placeholder
+$monthly_projection = '+12.4%';
+
 $dashboard_data = [
-    'total_sales' => 80450,
-    'active_employees' => 20,
-    'active_orders' => 560,
-    'out_for_delivery' => 32,
-    'unpaid_tasks' => 8,
-    'predicted_income' => 15200,
-    'monthly_projection' => '+12.4%'
+    'total_sales' => $total_sales,
+    'active_employees' => $active_employees,
+    'active_orders' => $active_orders,
+    'out_for_delivery' => $out_for_delivery,
+    'unpaid_tasks' => $unpaid_tasks,
+    'predicted_income' => $predicted_income,
+    'monthly_projection' => $monthly_projection
 ];
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -177,6 +237,49 @@ $dashboard_data = [
                 </div>
             </div>
         </div>
+        <!-- Total Expenses Card -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">Total Expenses</div>
+                <div class="card-icon expenses-icon">
+                    <i class="fas fa-wallet"></i>
+                </div>
+            </div>
+            <div class="big-number">₱<?php echo number_format($total_expenses, 2); ?></div>
+            <div class="info-row">
+                <span class="info-label">Track your company’s spending</span>
+            </div>
+        </div>
+
+        <!-- Pending Orders Card -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">Pending Orders</div>
+                <div class="card-icon pending-icon">
+                    <i class="fas fa-hourglass-half"></i>
+                </div>
+            </div>
+            <div class="big-number"><?php echo $pending_orders; ?></div>
+            <div class="info-row">
+                <span class="info-label">From Order Management</span>
+            </div>
+        </div>
+
+        <!-- Net Profit Card -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">Net Profit</div>
+                <div class="card-icon income-icon">
+                    <i class="fas fa-coins"></i>
+                </div>
+            </div>
+            <div class="big-number">₱<?= number_format($net_profit, 2); ?></div>
+            <div class="info-row">
+                <span class="info-label">After Expenses</span>
+            </div>
+        </div>
+
+
 
         <!-- Additional Dashboard Content -->
         <div class="dashboard-footer">
